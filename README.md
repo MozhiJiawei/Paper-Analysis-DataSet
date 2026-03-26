@@ -10,6 +10,11 @@
 - 中文摘要回填工具
 - 子仓自己的单元测试与质量入口
 
+## 文档
+
+- benchmark 规范文档位于 `docs/benchmarks/`
+- 总入口位于 `docs/README.md`
+
 ## 安装
 
 ```powershell
