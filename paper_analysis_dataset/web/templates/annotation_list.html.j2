@@ -1,0 +1,33 @@
+{% extends "annotation_base.html.j2" %}
+{% block content %}
+<section class="panel filter-bar">
+  <strong>状态筛选</strong>
+  <div class="filter-links">
+    <a href="/papers?status=all" class="{% if status_filter == 'all' %}active{% endif %}">全部（{{ counts["all"] }}）</a>
+    <a href="/papers?status=pending" class="{% if status_filter == 'pending' %}active{% endif %}">待复标（{{ counts["pending"] }}）</a>
+    <a href="/papers?status=completed" class="{% if status_filter == 'completed' %}active{% endif %}">已复标（{{ counts["completed"] }}）</a>
+    <a href="/papers?status=conflict" class="{% if status_filter == 'conflict' %}active{% endif %}">有冲突（{{ counts["conflict"] }}）</a>
+  </div>
+</section>
+
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>论文</th>
+      <th>会议</th>
+      <th>主研究对象</th>
+      <th>状态</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td><a href="/papers/{{ row.paper_id }}">{{ row.title }}</a></td>
+      <td>{{ row.venue }}</td>
+      <td>{{ row.primary_research_object }}</td>
+      <td>{{ row.status_label }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "annotation_base.html.j2" %}
+{% block content %}
+{% for row in rows %}
+<section class="panel" id="{{ row.paper_id }}">
+  <h2>{{ row.title }}</h2>
+  <p class="muted">{{ row.abstract }}</p>
+  <p>冲突字段：{{ row.conflicting_fields|join("、") }}</p>
+  <div class="two-column">
+    <div>
+      <h3>AI</h3>
+      <p>{{ row.codex.primary_research_object }}</p>
+      <p>{{ row.codex.preference_labels|join("、") or "无" }}</p>
+      <p>{{ row.codex.negative_tier }}</p>
+    </div>
+    <div>
+      <h3>Human</h3>
+      <p>{{ row.human.primary_research_object }}</p>
+      <p>{{ row.human.preference_labels|join("、") or "无" }}</p>
+      <p>{{ row.human.negative_tier }}</p>
+    </div>
+  </div>
+  <p class="muted">
+    {% if row.resolved %}
+    已仲裁
+    {% if row.resolved_choice == "codex" %}，当前采纳 AI{% elif row.resolved_choice == "human" %}，当前采纳 Human{% endif %}
+    {% else %}
+    待仲裁
+    {% endif %}
+  </p>
+  <form method="post" action="/conflicts/{{ row.paper_id }}/resolve">
+    <label class="checkbox-row">
+      <input type="radio" name="winner" value="codex" {% if row.resolved_choice == "codex" %}checked{% endif %}>
+      以 AI 为准
+    </label>
+    <label class="checkbox-row">
+      <input type="radio" name="winner" value="human" {% if row.resolved_choice == "human" %}checked{% endif %}>
+      以 Human 为准
+    </label>
+    <button type="submit">保存仲裁</button>
+  </form>
+</section>
+{% endfor %}
+{% endblock %}

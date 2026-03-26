@@ -1,0 +1,25 @@
+{% extends "annotation_base.html.j2" %}
+{% block content %}
+<section class="stats-grid">
+  <article class="panel">
+    <h2>总览</h2>
+    <p>候选池：{{ total_candidates }}</p>
+    <p>AI 预标：{{ total_ai_annotations }}</p>
+    <p>人工复标：{{ total_human_annotations }}</p>
+    <p>合并结果：{{ total_merged_annotations }}</p>
+    <p>冲突数：{{ total_conflicts }}</p>
+  </article>
+  <article class="panel">
+    <h2>负样本层</h2>
+    {% for key, value in summary.by_negative_tier.items() %}
+    <p>{{ key }}：{{ value }}</p>
+    {% endfor %}
+  </article>
+  <article class="panel">
+    <h2>研究对象分布</h2>
+    {% for key, value in summary.by_primary_research_object.items() %}
+    <p>{{ key }}：{{ value }}</p>
+    {% endfor %}
+  </article>
+</section>
+{% endblock %}

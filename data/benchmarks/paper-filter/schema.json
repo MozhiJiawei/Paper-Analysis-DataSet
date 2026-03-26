@@ -1,0 +1,55 @@
+{
+  "name": "paper-filter",
+  "version": "2026-03-26",
+  "description": "单版本 paper-filter benchmark 协议。",
+  "files": {
+    "records": "records.jsonl",
+    "annotations_ai": "annotations-ai.jsonl",
+    "annotations_human": "annotations-human.jsonl",
+    "merged": "merged.jsonl",
+    "conflicts": "conflicts.jsonl",
+    "stats": "stats.json"
+  },
+  "record_fields": {
+    "paper_id": "string",
+    "title": "string",
+    "abstract": "string",
+    "abstract_zh": "string",
+    "authors": "string[]",
+    "venue": "string",
+    "year": "integer",
+    "source": "string",
+    "source_path": "string",
+    "primary_research_object": "enum",
+    "candidate_preference_labels": "enum[]",
+    "candidate_negative_tier": "enum",
+    "keywords": "string[]",
+    "notes": "string"
+  },
+  "annotation_fields": {
+    "paper_id": "string",
+    "labeler_id": "string",
+    "primary_research_object": "enum",
+    "preference_labels": "enum[]",
+    "negative_tier": "enum",
+    "evidence_spans": "object",
+    "notes": "string",
+    "review_status": "enum"
+  },
+  "annotation_constraints": {
+    "preference_labels_cardinality": "0..1",
+    "positive_requires_exactly_one_preference_label": true
+  },
+  "negative_tiers": [
+    "positive",
+    "negative"
+  ],
+  "preference_labels": [
+    "解码策略优化",
+    "上下文与缓存优化",
+    "系统与调度优化",
+    "算子与内核优化",
+    "模型结构侧推理优化",
+    "模型压缩"
+  ]
+}

@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "paper-analysis-dataset"
+version = "0.1.0"
+description = "Dataset, annotation, and benchmark tooling for Paper Analysis"
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+include = ["paper_analysis_dataset*"]
+
+[tool.setuptools.package-data]
+"paper_analysis_dataset" = ["web/templates/*.j2", "web/static/*.css"]

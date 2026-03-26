@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/static/annotation.css">
+</head>
+<body>
+  <header class="page-header">
+    <h1>{{ title }}</h1>
+    <nav>
+      <a href="/papers">候选池</a>
+      <a href="/conflicts">冲突审阅</a>
+      <a href="/stats">数据概览</a>
+    </nav>
+  </header>
+  <main class="page-shell">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,190 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from paper_analysis_dataset.domain.benchmark import AnnotationRecord
+from paper_analysis_dataset.domain.benchmark import PREFERENCE_LABELS, RESEARCH_OBJECT_LABELS
+from paper_analysis_dataset.services.annotation_repository import AnnotationRepository
+from paper_analysis_dataset.services.benchmark_reporter import build_distribution_report
+
+
+@dataclass(slots=True)
+class AnnotationAppState:
+    repository: AnnotationRepository
+
+    def list_papers(self, status_filter: str = "all") -> list[dict[str, object]]:
+        records = {
+            item.paper_id: item
+            for item in self.repository.load_records()
+        }
+        ai = {
+            item.paper_id: item
+            for item in self.repository.load_annotations(self.repository.annotations_ai_path)
+        }
+        human = {
+            item.paper_id: item
+            for item in self.repository.load_annotations(self.repository.annotations_human_path)
+        }
+        conflicts = {
+            item.paper_id: item
+            for item in self.repository.load_conflicts(self.repository.conflicts_path)
+        }
+        rows: list[dict[str, object]] = []
+        for paper_id, record in records.items():
+            has_conflict = paper_id in conflicts and not conflicts[paper_id].is_resolved
+            human_completed = paper_id in human
+            status = _derive_status(
+                has_conflict=has_conflict,
+                human_completed=human_completed,
+            )
+            if status_filter != "all" and status != status_filter:
+                continue
+            rows.append(
+                {
+                    "paper_id": paper_id,
+                    "title": record.title,
+                    "venue": record.venue,
+                    "primary_research_object": record.primary_research_object,
+                    "ai_completed": paper_id in ai,
+                    "human_completed": human_completed,
+                    "has_conflict": has_conflict,
+                    "status": status,
+                    "status_label": _status_label(status),
+                }
+            )
+        return rows
+
+    def list_paper_counts(self) -> dict[str, int]:
+        records = {
+            item.paper_id
+            for item in self.repository.load_records()
+        }
+        human = {
+            item.paper_id
+            for item in self.repository.load_annotations(self.repository.annotations_human_path)
+        }
+        conflicts = {
+            item.paper_id
+            for item in self.repository.load_conflicts(
+                self.repository.conflicts_path
+            )
+            if not item.is_resolved
+        }
+        counts = {"all": len(records), "pending": 0, "completed": 0, "conflict": 0}
+        for paper_id in records:
+            status = _derive_status(
+                has_conflict=paper_id in conflicts,
+                human_completed=paper_id in human,
+            )
+            counts[status] += 1
+        return counts
+
+    def paper_detail(self, paper_id: str) -> dict[str, object]:
+        records = {item.paper_id: item for item in self.repository.load_records()}
+        record = records[paper_id]
+        ai = {
+            item.paper_id: item
+            for item in self.repository.load_annotations(self.repository.annotations_ai_path)
+        }.get(paper_id)
+        human = {
+            item.paper_id: item
+            for item in self.repository.load_annotations(self.repository.annotations_human_path)
+        }.get(paper_id)
+        merged = {
+            item.paper_id: item
+            for item in self.repository.load_annotations(self.repository.merged_path)
+        }.get(paper_id)
+        return {
+            "candidate": record.to_candidate_paper(),
+            "ai": ai,
+            "human": human,
+            "core_seed": merged or human or ai,
+            "preference_seed": merged or human or ai,
+            "supplement_seed": merged or human,
+            "preference_labels": PREFERENCE_LABELS,
+            "research_object_labels": RESEARCH_OBJECT_LABELS,
+        }
+
+    def next_pending_paper_id(self, current_paper_id: str | None = None) -> str | None:
+        pending_ids = [item["paper_id"] for item in self.list_papers(status_filter="pending")]
+        if not pending_ids:
+            return None
+        if current_paper_id not in pending_ids:
+            return pending_ids[0]
+        current_index = pending_ids.index(current_paper_id)
+        if current_index + 1 < len(pending_ids):
+            return pending_ids[current_index + 1]
+        if current_index > 0:
+            return pending_ids[0]
+        return None
+
+    def conflicts(self) -> list[dict[str, object]]:
+        records = {item.paper_id: item for item in self.repository.load_records()}
+        rows = []
+        for conflict in self.repository.load_conflicts(self.repository.conflicts_path):
+            if conflict.is_resolved:
+                continue
+            record = records[conflict.paper_id]
+            rows.append(
+                {
+                    "paper_id": conflict.paper_id,
+                    "title": record.title,
+                    "abstract": record.abstract,
+                    "conflicting_fields": conflict.conflicting_fields,
+                    "resolved": conflict.is_resolved,
+                    "codex": conflict.codex_annotation,
+                    "human": conflict.human_annotation,
+                    "resolved_choice": _resolved_choice(conflict),
+                }
+            )
+        return rows
+
+    def dashboard(self) -> dict[str, object]:
+        records = self.repository.load_records()
+        report = build_distribution_report(records)
+        return {
+            "summary": report,
+            "total_candidates": len(records),
+            "total_ai_annotations": len(self.repository.load_annotations(self.repository.annotations_ai_path)),
+            "total_human_annotations": len(self.repository.load_annotations(self.repository.annotations_human_path)),
+            "total_merged_annotations": len(self.repository.load_annotations(self.repository.merged_path)),
+            "total_conflicts": len(self.repository.load_conflicts(self.repository.conflicts_path)),
+        }
+
+
+def _derive_status(*, has_conflict: bool, human_completed: bool) -> str:
+    if has_conflict:
+        return "conflict"
+    if human_completed:
+        return "completed"
+    return "pending"
+
+
+def _status_label(status: str) -> str:
+    return {
+        "all": "全部",
+        "pending": "待复标",
+        "completed": "已复标",
+        "conflict": "有冲突",
+    }[status]
+
+
+def _resolved_choice(conflict: object) -> str | None:
+    resolved = conflict.resolved_annotation
+    if resolved is None:
+        return None
+    if _same_annotation_payload(resolved, conflict.codex_annotation):
+        return "codex"
+    if _same_annotation_payload(resolved, conflict.human_annotation):
+        return "human"
+    return "custom"
+
+
+def _same_annotation_payload(left: AnnotationRecord, right: AnnotationRecord) -> bool:
+    return (
+        left.primary_research_object == right.primary_research_object
+        and left.preference_labels == right.preference_labels
+        and left.negative_tier == right.negative_tier
+        and left.evidence_spans == right.evidence_spans
+        and left.notes == right.notes
+    )
