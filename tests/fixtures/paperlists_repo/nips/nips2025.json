@@ -1,0 +1,11 @@
+[
+  {
+    "title": "Low-bit Quantization for LLM Inference",
+    "status": "Main",
+    "id": "nips25-001",
+    "abstract": "Low-bit quantization accelerates language model inference while reducing memory.",
+    "keywords": "quantization;low-bit;inference",
+    "primary_area": "foundation models",
+    "author": "Nina"
+  }
+]

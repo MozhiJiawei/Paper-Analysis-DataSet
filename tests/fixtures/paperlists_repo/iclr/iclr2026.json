@@ -1,0 +1,11 @@
+[
+  {
+    "title": "Long Context Prompt Compression",
+    "status": "Poster",
+    "id": "iclr26-001",
+    "abstract": "Prompt compression reduces long context inference cost in language models.",
+    "keywords": "prompt compression;long context;inference",
+    "primary_area": "foundation models",
+    "author": "Ivy"
+  }
+]

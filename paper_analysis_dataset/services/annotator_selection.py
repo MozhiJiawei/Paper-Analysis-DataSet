@@ -10,7 +10,7 @@ from typing import Protocol
 
 from paper_analysis_dataset.services.codex_annotator import CodexCliAnnotator
 from paper_analysis_dataset.services.doubao_annotator import DoubaoAnnotator
-from paper_analysis.utils.doubao_client import DEFAULT_CONFIG_DIR_NAME
+from paper_analysis_dataset.shared.clients.doubao_client import DEFAULT_CONFIG_DIR_NAME
 
 
 ANNOTATOR_BACKENDS = ("codex_cli", "doubao")
@@ -121,7 +121,7 @@ def write_annotator_selection(
 
 
 def default_annotator_selection_path() -> Path:
-    config_root = os.getenv("PAPER_ANALYSIS_HOME")
+    config_root = os.getenv("PAPER_ANALYSIS_DATASET_HOME")
     if config_root:
         return Path(config_root) / ANNOTATOR_SELECTION_FILE_NAME
     return Path.home() / DEFAULT_CONFIG_DIR_NAME / ANNOTATOR_SELECTION_FILE_NAME

@@ -1,0 +1,28 @@
+[
+  {
+    "title": "Speculative Decoding with Draft Models",
+    "status": "Spotlight",
+    "id": "iclr25-001",
+    "abstract": "This paper improves LLM inference with speculative decoding, throughput gains, and lower latency.",
+    "keywords": "speculative decoding;throughput;latency",
+    "primary_area": "foundation models",
+    "author": "Alice;Bob",
+    "aff": "OpenAI;OpenAI"
+  },
+  {
+    "title": "General Representation Learning",
+    "status": "Poster",
+    "id": "iclr25-002",
+    "abstract": "A general machine learning paper without inference acceleration focus.",
+    "keywords": "representation learning;benchmark",
+    "primary_area": "machine learning",
+    "author": "Cara"
+  },
+  {
+    "title": "Withdrawn ICLR Paper",
+    "status": "Withdrawn",
+    "id": "iclr25-003",
+    "abstract": "Should be filtered.",
+    "author": "Eve"
+  }
+]

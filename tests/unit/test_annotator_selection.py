@@ -18,7 +18,7 @@ from paper_analysis_dataset.services.annotator_selection import (
 class AnnotatorSelectionTests(unittest.TestCase):
     def test_default_path_reads_from_user_private_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch.dict(os.environ, {"PAPER_ANALYSIS_HOME": temp_dir}, clear=False):
+            with patch.dict(os.environ, {"PAPER_ANALYSIS_DATASET_HOME": temp_dir}, clear=False):
                 path = default_annotator_selection_path()
 
         self.assertEqual(Path(temp_dir) / "annotation_backend.json", path)
@@ -28,7 +28,7 @@ class AnnotatorSelectionTests(unittest.TestCase):
             with patch.dict(
                 os.environ,
                 {
-                    "PAPER_ANALYSIS_HOME": temp_dir,
+                    "PAPER_ANALYSIS_DATASET_HOME": temp_dir,
                     "PAPER_ANALYSIS_ANNOTATOR_BACKEND": "",
                 },
                 clear=False,

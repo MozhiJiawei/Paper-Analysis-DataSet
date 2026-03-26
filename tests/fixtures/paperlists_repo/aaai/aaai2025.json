@@ -1,0 +1,11 @@
+[
+  {
+    "title": "KV Cache Compression for Efficient Serving",
+    "status": "Oral",
+    "id": "aaai25-001",
+    "abstract": "We compress KV cache for LLM inference to improve serving throughput and latency.",
+    "keywords": "KV cache;compression;serving",
+    "primary_area": "foundation models",
+    "author": "Ann"
+  }
+]

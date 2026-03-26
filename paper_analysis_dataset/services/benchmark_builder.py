@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Protocol
 
 from paper_analysis_dataset.domain.benchmark import BenchmarkRecord, CandidatePaper, PREFERENCE_LABELS
-from paper_analysis.domain.paper import Paper
-from paper_analysis.sources.conference.paperlists_parser import (
+from paper_analysis_dataset.shared.conference.paper_model import Paper
+from paper_analysis_dataset.shared.conference.paperlists_parser import (
     filter_accepted_records,
     load_raw_records,
     normalize_records,

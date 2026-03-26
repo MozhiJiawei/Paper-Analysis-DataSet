@@ -1,0 +1,11 @@
+[
+  {
+    "title": "Continuous Batching for Language Model Serving",
+    "status": "Poster",
+    "id": "icml25-001",
+    "abstract": "A serving runtime with continuous batching and lower latency for large language models.",
+    "keywords": "continuous batching;runtime;latency",
+    "primary_area": "systems",
+    "author": "Mia"
+  }
+]

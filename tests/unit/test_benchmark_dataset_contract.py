@@ -11,6 +11,7 @@ from paper_analysis_dataset.tools.rebuild_paper_filter_benchmark import rebuild_
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
+FIXTURE_PAPERLISTS_ROOT = ROOT_DIR / "tests" / "fixtures" / "paperlists_repo"
 
 
 class _FakeTranslator:
@@ -27,8 +28,17 @@ class BenchmarkDatasetContractTests(unittest.TestCase):
         if cls.temp_root.exists():
             shutil.rmtree(cls.temp_root)
         rebuild_benchmark(
+            paperlists_root=FIXTURE_PAPERLISTS_ROOT,
             benchmark_root=cls.temp_root,
             abstract_translator=_FakeTranslator(),
+            quota_by_venue={
+                ("aaai", 2025): 1,
+                ("iclr", 2025): 1,
+                ("iclr", 2026): 1,
+                ("icml", 2025): 1,
+                ("nips", 2025): 1,
+            },
+            minimum_score=6,
         )
 
     def test_single_version_dataset_files_exist(self) -> None:
@@ -96,6 +106,14 @@ class BenchmarkDatasetContractTests(unittest.TestCase):
         self.assertEqual(["positive", "negative"], payload["negative_tiers"])
         self.assertNotIn("migration", payload)
         self.assertNotIn("splits", json.dumps(payload, ensure_ascii=False))
+
+    def test_rebuild_requires_explicit_existing_paperlists_root(self) -> None:
+        with self.assertRaises(ValueError):
+            rebuild_benchmark(
+                paperlists_root=ROOT_DIR / "tests" / "fixtures" / "missing-paperlists",
+                benchmark_root=self.temp_root / "missing",
+                abstract_translator=_FakeTranslator(),
+            )
 
 
 if __name__ == "__main__":

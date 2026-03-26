@@ -6,11 +6,11 @@ from pathlib import Path
 from typing import Callable
 
 from paper_analysis_dataset.domain.benchmark import AnnotationRecord, CandidatePaper
+from paper_analysis_dataset.shared.clients.doubao_client import DoubaoClient
 from paper_analysis_dataset.services.codex_annotator import (
     build_codex_annotation_prompt,
     parse_codex_annotation_payload,
 )
-from paper_analysis.utils.doubao_client import DoubaoClient
 
 
 Runner = Callable[[list[dict[str, object]]], dict[str, object]]

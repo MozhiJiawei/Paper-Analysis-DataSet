@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from paper_analysis_dataset.domain.benchmark import CandidatePaper
-from paper_analysis.utils.doubao_client import DoubaoClient
+from paper_analysis_dataset.shared.clients.doubao_client import DoubaoClient
 
 
 Runner = Callable[[list[dict[str, Any]]], dict[str, Any]]

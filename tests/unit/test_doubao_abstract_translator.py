@@ -10,12 +10,12 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from paper_analysis_dataset.domain.benchmark import CandidatePaper
+from paper_analysis_dataset.shared.clients.doubao_client import DoubaoClient
 from paper_analysis_dataset.services.doubao_abstract_translator import (
     DoubaoAbstractTranslator,
     build_doubao_abstract_translation_messages,
     parse_doubao_abstract_translation_payload,
 )
-from paper_analysis.utils.doubao_client import DoubaoClient
 
 
 class DoubaoAbstractTranslatorTests(unittest.TestCase):
@@ -185,13 +185,13 @@ class DoubaoClientTests(unittest.TestCase):
 
     def test_default_config_reads_from_user_private_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            config_root = Path(temp_dir) / ".paper-analysis"
+            config_root = Path(temp_dir) / ".paper-analysis-dataset"
             config_root.mkdir(parents=True, exist_ok=True)
             (config_root / "doubao.yaml").write_text(
                 "doubao:\n  api_key: private-key\n  base_url: https://private.test\n  model: private-model\n",
                 encoding="utf-8",
             )
-            with patch.dict(os.environ, {"PAPER_ANALYSIS_HOME": str(config_root)}, clear=False):
+            with patch.dict(os.environ, {"PAPER_ANALYSIS_DATASET_HOME": str(config_root)}, clear=False):
                 client = DoubaoClient()
 
         self.assertEqual("private-key", client.resolved_api_key)
@@ -206,7 +206,7 @@ class DoubaoClientTests(unittest.TestCase):
             client.submit([{"role": "user", "content": "hi"}]).result()
 
         self.assertIn("ARK_API_KEY", str(context.exception))
-        self.assertIn(".paper-analysis", str(context.exception))
+        self.assertIn(".paper-analysis-dataset", str(context.exception))
         self.assertIn("doubao.template.yaml", str(context.exception))
 
     def test_runner_short_circuits_sdk_creation(self) -> None:

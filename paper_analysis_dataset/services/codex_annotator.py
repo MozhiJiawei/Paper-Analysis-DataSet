@@ -7,7 +7,7 @@ from typing import Callable
 
 from paper_analysis_dataset.domain.benchmark import PREFERENCE_LABELS, RESEARCH_OBJECT_LABELS
 from paper_analysis_dataset.domain.benchmark import AnnotationRecord, CandidatePaper
-from paper_analysis.utils.codex_cli_client import CodexCliClient
+from paper_analysis_dataset.shared.clients.codex_cli_client import CodexCliClient
 
 
 Runner = Callable[[str], str]

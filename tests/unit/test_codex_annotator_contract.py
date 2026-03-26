@@ -9,7 +9,7 @@ from paper_analysis_dataset.services.codex_annotator import (
     build_codex_annotation_prompt,
     parse_codex_annotation_payload,
 )
-from paper_analysis.utils.codex_cli_client import CodexCliClient
+from paper_analysis_dataset.shared.clients.codex_cli_client import CodexCliClient
 
 
 class CodexAnnotatorContractTests(unittest.TestCase):
