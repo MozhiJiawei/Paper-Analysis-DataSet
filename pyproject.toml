@@ -18,6 +18,7 @@ paper-analysis-dataset-annotate = "paper_analysis_dataset.tools.annotate_paper_f
 paper-analysis-dataset-backfill = "paper_analysis_dataset.tools.backfill_paper_filter_abstract_zh:main"
 paper-analysis-dataset-annotation-app = "paper_analysis_dataset.web.annotation_app:main"
 paper-analysis-dataset-local-ci = "paper_analysis_dataset.tools.local_ci:main"
+paper-analysis-dataset-evaluate = "paper_analysis_dataset.tools.evaluate_paper_filter_benchmark:main"
 
 [tool.setuptools.packages.find]
 include = ["paper_analysis_dataset*"]

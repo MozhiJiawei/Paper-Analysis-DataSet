@@ -31,7 +31,16 @@ paper-analysis-dataset-rebuild --paperlists-root D:\path\to\paperlists
 paper-analysis-dataset-annotate
 paper-analysis-dataset-backfill --limit 20
 paper-analysis-dataset-annotation-app
+paper-analysis-dataset-evaluate --base-url http://127.0.0.1:8765 --limit 20
 ```
+
+Cross-repo evaluation startup:
+
+- Start the main-repo evaluation service first: `py -m paper_analysis.api.evaluation_server --port 8765`
+- Then run dataset evaluation from this repo: `paper-analysis-dataset-evaluate --base-url http://127.0.0.1:8765 --limit 20`
+- Module entry is also supported: `py -m paper_analysis_dataset.tools.evaluate_paper_filter_benchmark --base-url http://127.0.0.1:8765 --limit 20`
+- The dataset repo talks to the main repo only through `POST /v1/evaluation/annotate`
+- Formal evaluation reports must stay de-identified and output aggregate metrics only
 
 ## Coding Style & Naming Conventions
 Target Python 3.11+ and follow existing style: 4-space indentation, explicit type hints, `from __future__ import annotations`, and small focused modules. Use `snake_case` for files, functions, and variables; `PascalCase` for classes; `UPPER_SNAKE_CASE` for module constants such as scoring rules or defaults.

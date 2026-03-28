@@ -8,6 +8,7 @@
 - annotation 仓储、合并逻辑与网页标注应用
 - Codex / Doubao 预标工具
 - 中文摘要回填工具
+- 跨仓评测 CLI 与脱敏报告输出
 - 子仓自己的单元测试与质量入口
 
 ## 文档
@@ -32,6 +33,7 @@ paper-analysis-dataset-rebuild --paperlists-root D:\path\to\paperlists
 paper-analysis-dataset-annotate
 paper-analysis-dataset-backfill --limit 20
 paper-analysis-dataset-annotation-app
+paper-analysis-dataset-evaluate --base-url http://127.0.0.1:8765 --limit 20
 paper-analysis-dataset-local-ci
 ```
 
@@ -39,8 +41,15 @@ paper-analysis-dataset-local-ci
 
 ```powershell
 py -m paper_analysis_dataset.tools.rebuild_paper_filter_benchmark --paperlists-root D:\path\to\paperlists
+py -m paper_analysis_dataset.tools.evaluate_paper_filter_benchmark --base-url http://127.0.0.1:8765 --limit 20
 py -m paper_analysis_dataset.tools.local_ci
 ```
+
+评测约束：
+
+- 主仓看不到子仓 benchmark 文件内容
+- 子仓只通过 `POST /v1/evaluation/annotate` 与主仓交互
+- 正式评测报告只输出聚合指标，不输出 `paper_id`、标题、摘要、作者、`source_path`
 
 如需在重建时顺便生成中文摘要，显式开启：
 

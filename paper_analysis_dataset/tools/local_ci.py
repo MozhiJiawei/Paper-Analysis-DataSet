@@ -19,7 +19,7 @@ def run_local_ci() -> dict[str, object]:
         "unittest",
         "discover",
         "-s",
-        str(DATASET_ROOT_DIR / "tests" / "unit"),
+        str(DATASET_ROOT_DIR / "tests"),
         "-t",
         str(DATASET_ROOT_DIR),
     ]
