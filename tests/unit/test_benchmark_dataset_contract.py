@@ -107,6 +107,19 @@ class BenchmarkDatasetContractTests(unittest.TestCase):
         self.assertNotIn("migration", payload)
         self.assertNotIn("splits", json.dumps(payload, ensure_ascii=False))
 
+    def test_stats_include_layered_annotation_view(self) -> None:
+        """验证 stats.json 暴露按层统计，并保留顶层兼容字段。"""
+
+        repository = AnnotationRepository(self.temp_root)
+        stats = repository.read_json(repository.stats_path)
+
+        self.assertIn("total_records", stats)
+        self.assertIn("by_negative_tier", stats)
+        self.assertIn("by_layer", stats)
+        self.assertEqual(0, stats["by_layer"]["annotations_ai"]["total_records"])
+        self.assertIn("positive_ratio", stats["by_layer"]["annotations_ai"])
+        self.assertIn("by_negative_tier", stats["by_layer"]["annotations_ai"])
+
     def test_rebuild_requires_explicit_existing_paperlists_root(self) -> None:
         with self.assertRaises(ValueError):
             rebuild_benchmark(

@@ -12,7 +12,7 @@ from paper_analysis_dataset.services.benchmark_builder import (
     DEFAULT_RELEASE_QUOTA_BY_VENUE,
     DEFAULT_VENUE_TARGETS,
 )
-from paper_analysis_dataset.services.benchmark_reporter import build_distribution_report
+from paper_analysis_dataset.services.rebalance_benchmark import refresh_benchmark_stats
 from paper_analysis_dataset.services.doubao_abstract_translator import DoubaoAbstractTranslator
 from paper_analysis_dataset.shared.paths import DATASET_ROOT_DIR
 
@@ -90,7 +90,6 @@ def rebuild_benchmark(
         minimum_score=minimum_score,
     )
     records = builder.build_records(candidates, abstract_translator=abstract_translator)
-    stats = build_distribution_report(records)
 
     repository.write_records(records)
     repository.write_annotations([], repository.annotations_ai_path)
@@ -98,7 +97,7 @@ def rebuild_benchmark(
     repository.write_annotations([], repository.merged_path)
     repository.write_conflicts([], repository.conflicts_path)
     repository.write_json(_build_schema_payload(), repository.schema_path)
-    repository.write_json(stats, repository.stats_path)
+    stats = refresh_benchmark_stats(repository, records=records, annotations_ai=[], annotations_human=[], merged_annotations=[])
 
     return {
         "benchmark_root": str(target_root),

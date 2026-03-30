@@ -30,6 +30,7 @@ class BenchmarkBuilderTests(unittest.TestCase):
         self.assertEqual("conference", candidates[0].source)
         self.assertEqual("ICLR 2025", candidates[0].venue)
         self.assertTrue(candidates[0].primary_research_object)
+        self.assertEqual(["iclr25-001", "iclr25-002"], [candidate.paper_id for candidate in candidates])
 
     def test_validate_release_dataset_flags_no_duplicates(self) -> None:
         """验证单版本 records 校验能返回正样本与负样本统计。"""
@@ -68,6 +69,14 @@ class BenchmarkBuilderTests(unittest.TestCase):
         )
         self.assertTrue(any(candidate.candidate_negative_tier == "positive" for candidate in candidates))
         self.assertTrue(all(len(candidate.candidate_preference_labels) <= 1 for candidate in candidates))
+
+    def test_build_candidates_only_keeps_accepted_records(self) -> None:
+        """验证 withdrawn 等非 accepted 记录不会进入候选池。"""
+
+        builder = BenchmarkBuilder(FIXTURE_PAPERLISTS_ROOT)
+        candidates = builder.build_candidates((("iclr", 2025),))
+
+        self.assertEqual(["iclr25-001", "iclr25-002"], [candidate.paper_id for candidate in candidates])
 
 
 if __name__ == "__main__":

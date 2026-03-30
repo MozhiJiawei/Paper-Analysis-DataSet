@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
-from concurrent.futures import FIRST_COMPLETED, Future, wait
 
 from paper_analysis_dataset.services.annotation_repository import AnnotationRepository
 from paper_analysis_dataset.services.annotator_selection import build_annotator, resolve_annotation_backend
+from paper_analysis_dataset.services.rebalance_benchmark import (
+    annotate_missing_candidates,
+    refresh_benchmark_stats,
+)
 from paper_analysis_dataset.shared.paths import DATASET_ROOT_DIR
 
 
@@ -17,32 +20,25 @@ def annotate_benchmark(*, concurrency: int = DEFAULT_CONCURRENCY) -> dict[str, o
     backend = resolve_annotation_backend()
     annotator = build_annotator(backend, concurrency=concurrency)
     candidates = repository.load_candidates()
-    annotations_by_id: dict[str, object] = {}
-    pending_iter = iter(candidates)
-    pending_futures: dict[Future[object], object] = {}
 
     repository.write_annotations([], repository.annotations_ai_path)
-
-    for _ in range(min(concurrency, len(candidates))):
-        candidate = next(pending_iter, None)
-        if candidate is None:
-            break
-        pending_futures[annotator.submit_annotate(candidate)] = candidate
-
-    while pending_futures:
-        done, _ = wait(pending_futures.keys(), return_when=FIRST_COMPLETED)
-        for future in done:
-            candidate = pending_futures.pop(future)
-            annotations_by_id[candidate.paper_id] = future.result()
-            repository.write_annotations(list(annotations_by_id.values()), repository.annotations_ai_path)
-
-            next_candidate = next(pending_iter, None)
-            if next_candidate is not None:
-                pending_futures[annotator.submit_annotate(next_candidate)] = next_candidate
+    annotate_summary = annotate_missing_candidates(
+        repository,
+        candidates,
+        annotator=annotator,
+        backend=backend,
+        concurrency=concurrency,
+        skip_existing_annotations=False,
+    )
+    if all(
+        hasattr(repository, attribute)
+        for attribute in ("load_records", "annotations_human_path", "merged_path", "stats_path", "write_json")
+    ):
+        refresh_benchmark_stats(repository)
     return {
         "benchmark_root": str(BENCHMARK_ROOT),
         "total_records": len(candidates),
-        "annotations_ai": len(annotations_by_id),
+        "annotations_ai": int(annotate_summary["created"]),
         "backend": backend,
         "concurrency": concurrency,
     }

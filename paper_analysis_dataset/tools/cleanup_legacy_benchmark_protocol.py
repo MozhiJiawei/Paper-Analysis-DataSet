@@ -9,7 +9,7 @@ from typing import Any
 from paper_analysis_dataset.domain.benchmark import AnnotationRecord, BenchmarkRecord, ConflictRecord
 from paper_analysis_dataset.services.annotation_merge import merge_annotations
 from paper_analysis_dataset.services.annotation_repository import AnnotationRepository
-from paper_analysis_dataset.services.benchmark_reporter import build_distribution_report
+from paper_analysis_dataset.services.rebalance_benchmark import refresh_benchmark_stats
 from paper_analysis_dataset.tools.rebuild_paper_filter_benchmark import _build_schema_payload
 
 
@@ -57,7 +57,6 @@ def cleanup_legacy_benchmark_protocol(benchmark_root: Path | None = None) -> dic
 
     merged_by_id = {item.paper_id: item for item in result.records}
     next_records = [merged_by_id.get(item.paper_id, item) for item in records]
-    stats = build_distribution_report(next_records)
     schema = _build_schema_payload()
 
     repository.write_records(next_records)
@@ -66,7 +65,13 @@ def cleanup_legacy_benchmark_protocol(benchmark_root: Path | None = None) -> dic
     repository.write_annotations(result.merged_annotations, repository.merged_path)
     repository.write_conflicts(result.conflicts, repository.conflicts_path)
     repository.write_json(schema, repository.schema_path)
-    repository.write_json(stats, repository.stats_path)
+    stats = refresh_benchmark_stats(
+        repository,
+        records=next_records,
+        annotations_ai=ai_annotations,
+        annotations_human=human_annotations,
+        merged_annotations=result.merged_annotations,
+    )
 
     return {
         "benchmark_root": str(repository.root_dir),

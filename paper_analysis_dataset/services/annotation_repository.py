@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Callable, TypeVar
 
@@ -88,6 +89,10 @@ class AnnotationRepository:
         include_final_annotations: bool = False,
     ) -> Path:
         sorted_records = sorted(records, key=lambda item: item.paper_id)
+        duplicate_paper_ids = _find_duplicate_paper_ids(record.paper_id for record in sorted_records)
+        if duplicate_paper_ids:
+            duplicates = ", ".join(duplicate_paper_ids)
+            raise ValueError(f"records 包含重复 paper_id：{duplicates}")
         return self._write_jsonl(
             path or self.records_path,
             sorted_records,
@@ -102,7 +107,7 @@ class AnnotationRepository:
         include_final_annotations: bool = False,
     ) -> Path:
         target_path = path or self.records_path
-        existing = self.load_record_map() if target_path.exists() else {}
+        existing = {item.paper_id: item for item in self.load_records(target_path)} if target_path.exists() else {}
         existing[record.paper_id] = record
         return self.write_records(
             list(existing.values()),
@@ -119,6 +124,12 @@ class AnnotationRepository:
     def upsert_annotation(self, annotation: AnnotationRecord, path: Path) -> Path:
         existing = {item.paper_id: item for item in self.load_annotations(path)} if path.exists() else {}
         existing[annotation.paper_id] = annotation
+        return self.write_annotations(list(existing.values()), path)
+
+    def upsert_annotations(self, annotations: list[AnnotationRecord], path: Path) -> Path:
+        existing = {item.paper_id: item for item in self.load_annotations(path)} if path.exists() else {}
+        for annotation in annotations:
+            existing[annotation.paper_id] = annotation
         return self.write_annotations(list(existing.values()), path)
 
     def load_conflicts(self, path: Path) -> list[ConflictRecord]:
@@ -167,3 +178,14 @@ class AnnotationRepository:
             lines.append(json.dumps(payload, ensure_ascii=False))
         path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
         return path
+
+
+def _find_duplicate_paper_ids(paper_ids: Iterable[str]) -> list[str]:
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for paper_id in paper_ids:
+        if paper_id in seen:
+            duplicates.add(paper_id)
+            continue
+        seen.add(paper_id)
+    return sorted(duplicates)

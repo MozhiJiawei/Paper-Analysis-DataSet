@@ -36,6 +36,47 @@ class AnnotationRepositoryTests(unittest.TestCase):
         self.assertEqual(1, len(loaded))
         self.assertEqual("paper-1", loaded[0].paper_id)
 
+    def test_upsert_annotations_preserves_existing_ai_records(self) -> None:
+        """验证批量 upsert AI 标注时不会清空已有记录。"""
+
+        temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-repository-upsert-many"
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
+        repository = AnnotationRepository(temp_root)
+
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-1",
+                    labeler_id="codex_cli",
+                    primary_research_object="LLM",
+                    preference_labels=["解码策略优化"],
+                    negative_tier="positive",
+                    evidence_spans={"general": ["old"]},
+                    review_status="pending",
+                )
+            ],
+            repository.annotations_ai_path,
+        )
+
+        repository.upsert_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-2",
+                    labeler_id="codex_cli",
+                    primary_research_object="AI 系统 / 基础设施",
+                    preference_labels=[],
+                    negative_tier="negative",
+                    evidence_spans={"general": ["new"]},
+                    review_status="pending",
+                )
+            ],
+            repository.annotations_ai_path,
+        )
+
+        loaded = repository.load_annotations(repository.annotations_ai_path)
+        self.assertEqual(["paper-1", "paper-2"], [item.paper_id for item in loaded])
+
     def test_invalid_annotation_is_rejected_before_write(self) -> None:
         """验证非法标签不会被写入磁盘。"""
 
