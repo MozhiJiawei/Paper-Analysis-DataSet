@@ -74,6 +74,7 @@ def evaluate_benchmark(
     truths_all = repository.load_annotations(repository.merged_path)
     selected_truths = _sample_truths(truths_all, limit=limit, sample_seed=sample_seed)
     client = EvaluationApiClient(base_url=base_url, timeout_seconds=timeout_seconds)
+    print(f"[evaluate] start total={len(selected_truths)} base_url={base_url}")
 
     truths: list[AnnotationRecord] = []
     predictions: list[AnnotationRecord] = []
@@ -90,17 +91,31 @@ def evaluate_benchmark(
             prediction = client.annotate(candidate, request_id=request_id)
         except EvaluationApiError:
             request_error_count += 1
+            print(
+                f"[evaluate] {index}/{len(selected_truths)} errors={request_error_count} "
+                f"protocol_errors={protocol_error_count} paper_id={truth.paper_id}"
+            )
             if fail_fast:
+                print(f"[evaluate] fail_fast paper_id={truth.paper_id}")
                 raise
             continue
         except EvaluationProtocolError:
             protocol_error_count += 1
+            print(
+                f"[evaluate] {index}/{len(selected_truths)} errors={request_error_count} "
+                f"protocol_errors={protocol_error_count} paper_id={truth.paper_id}"
+            )
             if fail_fast:
+                print(f"[evaluate] fail_fast paper_id={truth.paper_id}")
                 raise
             continue
         prediction.paper_id = truth.paper_id
         truths.append(truth)
         predictions.append(prediction)
+        print(
+            f"[evaluate] {index}/{len(selected_truths)} errors={request_error_count} "
+            f"protocol_errors={protocol_error_count} paper_id={truth.paper_id}"
+        )
 
     report = build_evaluation_report(
         truths=truths,
@@ -114,6 +129,7 @@ def evaluate_benchmark(
         "artifacts": {key: str(path) for key, path in artifacts.items()},
         "report": report,
     }
+    print(f"[evaluate] done output_dir={output_dir}")
     return summary
 
 

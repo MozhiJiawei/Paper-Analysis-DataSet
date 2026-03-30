@@ -4,6 +4,8 @@ import json
 import shutil
 import unittest
 from concurrent.futures import Future
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 
 from paper_analysis_dataset.domain.benchmark import AnnotationRecord, BenchmarkRecord, CandidatePaper
@@ -169,19 +171,25 @@ class RebalancePaperFilterBenchmarkTests(unittest.TestCase):
             }
         )
 
-        summary = rebalance_benchmark(
-            paperlists_root=paperlists_root,
-            benchmark_root=benchmark_root,
-            target_ai_positive_ratio=0.5,
-            batch_size=1,
-            seed=7,
-            annotator=annotator,
-        )
+        stdout = StringIO()
+        with redirect_stdout(stdout):
+            summary = rebalance_benchmark(
+                paperlists_root=paperlists_root,
+                benchmark_root=benchmark_root,
+                target_ai_positive_ratio=0.5,
+                batch_size=1,
+                seed=7,
+                annotator=annotator,
+            )
 
         self.assertEqual(1, summary["added_records"])
         self.assertEqual(1, summary["batches_completed"])
         self.assertEqual("target_ratio_reached", summary["stop_reason"])
         self.assertEqual(0.5, summary["final_ai_positive_ratio"])
+        self.assertIn("[rebalance] start", stdout.getvalue())
+        self.assertIn("[rebalance] batch=1 start", stdout.getvalue())
+        self.assertIn("[rebalance] batch=1 added=1 ratio=0.50", stdout.getvalue())
+        self.assertIn("[rebalance] done", stdout.getvalue())
         self.assertEqual(2, len(repository.load_records()))
         self.assertEqual(
             ["existing-paper", annotator.seen_paper_ids[0]],

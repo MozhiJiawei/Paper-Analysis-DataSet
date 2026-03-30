@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import unittest
 from concurrent.futures import Future
+from contextlib import redirect_stdout
+from io import StringIO
 from unittest.mock import patch
 
 from paper_analysis_dataset.domain.benchmark import AnnotationRecord, BenchmarkRecord, CandidatePaper
@@ -81,7 +83,9 @@ class AnnotateBenchmarkToolTests(unittest.TestCase):
         with patch("paper_analysis_dataset.tools.annotate_paper_filter_benchmark.AnnotationRepository", return_value=FakeRepository()):
             with patch("paper_analysis_dataset.tools.annotate_paper_filter_benchmark.resolve_annotation_backend", return_value="codex_cli"):
                 with patch("paper_analysis_dataset.tools.annotate_paper_filter_benchmark.build_annotator", return_value=FakeAnnotator()) as build_annotator:
-                    summary = annotate_benchmark(concurrency=3)
+                    stdout = StringIO()
+                    with redirect_stdout(stdout):
+                        summary = annotate_benchmark(concurrency=3)
 
         self.assertEqual(["paper-1", "paper-2"], submitted)
         self.assertEqual(3, len(writes))
@@ -91,6 +95,9 @@ class AnnotateBenchmarkToolTests(unittest.TestCase):
         self.assertEqual({"paper-1", "paper-2"}, {item.paper_id for item in writes[2]})
         self.assertEqual(2, summary["annotations_ai"])
         self.assertEqual(3, summary["concurrency"])
+        self.assertIn("[annotate] start", stdout.getvalue())
+        self.assertIn("[annotate] 1/2", stdout.getvalue())
+        self.assertIn("[annotate] done", stdout.getvalue())
         build_annotator.assert_called_once_with("codex_cli", concurrency=3)
 
 
@@ -141,7 +148,9 @@ class BackfillAbstractToolTests(unittest.TestCase):
 
         with patch("paper_analysis_dataset.tools.backfill_paper_filter_abstract_zh.AnnotationRepository", return_value=FakeRepository()):
             with patch("paper_analysis_dataset.tools.backfill_paper_filter_abstract_zh.DoubaoAbstractTranslator", FakeTranslator):
-                summary = backfill_abstract_zh(workers=2, checkpoint_every=1)
+                stdout = StringIO()
+                with redirect_stdout(stdout):
+                    summary = backfill_abstract_zh(workers=2, checkpoint_every=1)
 
         self.assertEqual([2], translator_concurrency)
         self.assertEqual(["paper-1", "paper-2"], submitted)
@@ -150,6 +159,9 @@ class BackfillAbstractToolTests(unittest.TestCase):
         self.assertEqual("译文：B", writes[-1][1].abstract_zh)
         self.assertEqual(2, summary["updated_records"])
         self.assertEqual(0, summary["remaining_records"])
+        self.assertIn("[backfill] start", stdout.getvalue())
+        self.assertIn("[backfill] checkpoint 1/2", stdout.getvalue())
+        self.assertIn("[backfill] done", stdout.getvalue())
 
 
 if __name__ == "__main__":

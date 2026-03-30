@@ -27,6 +27,10 @@ def backfill_abstract_zh(
     pending_indexes = [index for index, record in enumerate(records) if _needs_backfill(record)]
     if limit is not None:
         pending_indexes = pending_indexes[:limit]
+    checkpoint_every = max(1, checkpoint_every)
+    print(
+        f"[backfill] start total={len(pending_indexes)} workers={workers} checkpoint_every={checkpoint_every}"
+    )
 
     if not pending_indexes:
         return {
@@ -38,9 +42,9 @@ def backfill_abstract_zh(
             "checkpoint_every": checkpoint_every,
         }
 
-    checkpoint_every = max(1, checkpoint_every)
     updated_records = list(records)
     translated_count = 0
+    total_pending = len(pending_indexes)
 
     pending_futures: dict[Future[BenchmarkRecord], int] = {}
     pending_iter = iter(pending_indexes)
@@ -59,9 +63,11 @@ def backfill_abstract_zh(
             translated_record = future.result()
             updated_records[index] = translated_record
             translated_count += 1
+            print(f"[backfill] {translated_count}/{total_pending} paper_id={translated_record.paper_id}")
 
             if translated_count % checkpoint_every == 0:
                 repository.write_records(updated_records)
+                print(f"[backfill] checkpoint {translated_count}/{total_pending}")
 
             next_index = next(pending_iter, None)
             if next_index is not None:
@@ -70,7 +76,7 @@ def backfill_abstract_zh(
 
     repository.write_records(updated_records)
     remaining_records = sum(1 for record in updated_records if _needs_backfill(record))
-    return {
+    summary = {
         "benchmark_root": str(BENCHMARK_ROOT),
         "total_records": len(records),
         "updated_records": translated_count,
@@ -78,6 +84,8 @@ def backfill_abstract_zh(
         "workers": workers,
         "checkpoint_every": checkpoint_every,
     }
+    print(f"[backfill] done updated={translated_count} remaining={remaining_records}")
+    return summary
 
 
 def main() -> None:
@@ -111,6 +119,7 @@ def _needs_backfill(record: BenchmarkRecord) -> bool:
         return True
     # 覆盖测试或占位流程写入的伪中文摘要。
     return record.abstract_zh.strip() == f"中文摘要：{record.title}"
+
 
 def _submit_translate_record(
     record: BenchmarkRecord,

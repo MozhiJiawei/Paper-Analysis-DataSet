@@ -20,6 +20,8 @@ paper-analysis-dataset-evaluate --base-url http://127.0.0.1:8765 --limit 20
 paper-analysis-dataset-rebalance --paperlists-root D:\path\to\paperlists --venues iclr:2026 nips:2025 --target-ai-positive-ratio 0.30 --batch-size 50 --seed 20260328
 ```
 
+长时任务默认会打印极简进度日志到控制台，至少包含 `start`、进行中进度和 `done`，便于观察 AI 标注、回填、评测和重平衡过程。
+
 ## benchmark 规范
 
 - `docs/benchmarks/paper-filter-dataset-protocol.md`

@@ -46,6 +46,7 @@ Cross-repo evaluation startup:
 Target Python 3.11+ and follow existing style: 4-space indentation, explicit type hints, `from __future__ import annotations`, and small focused modules. Use `snake_case` for files, functions, and variables; `PascalCase` for classes; `UPPER_SNAKE_CASE` for module constants such as scoring rules or defaults.
 
 Prefer standard library tools already used in the repo. Keep CLI modules thin and place reusable logic in `services/` or `shared/`.
+Long-running tasks must print minimal progress logs to stdout, with at least `start`, in-progress updates, and `done`.
 
 ## Testing Guidelines
 Use `unittest` with test files named `test_*.py` and test classes ending in `Tests`. Keep fixtures under `tests/fixtures/` so tests remain independently runnable without external datasets. Add or update unit tests for service logic, CLI contracts, and annotation/data merge behavior when changing those areas.
