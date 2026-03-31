@@ -10,6 +10,7 @@ from typing import Callable
 
 
 Runner = Callable[[str], str]
+DEFAULT_CODEX_CLI_MODEL = "gpt-5.1-codex-mini"
 
 
 @dataclass(slots=True)

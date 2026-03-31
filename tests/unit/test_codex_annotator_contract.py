@@ -9,7 +9,10 @@ from paper_analysis_dataset.services.codex_annotator import (
     build_codex_annotation_prompt,
     parse_codex_annotation_payload,
 )
-from paper_analysis_dataset.shared.clients.codex_cli_client import CodexCliClient
+from paper_analysis_dataset.shared.clients.codex_cli_client import (
+    CodexCliClient,
+    DEFAULT_CODEX_CLI_MODEL,
+)
 
 
 class CodexAnnotatorContractTests(unittest.TestCase):
@@ -120,7 +123,7 @@ class CodexAnnotatorContractTests(unittest.TestCase):
         with patch("paper_analysis_dataset.services.codex_annotator.CodexCliClient") as client_cls:
             annotator = CodexCliAnnotator(runner=runner)
 
-        client_cls.assert_called_once_with(runner=runner, concurrency=1)
+        client_cls.assert_called_once_with(runner=runner, model=DEFAULT_CODEX_CLI_MODEL, concurrency=1)
         self.assertIsNotNone(annotator)
 
     def test_parse_negative_payload_clears_preference_labels(self) -> None:

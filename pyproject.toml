@@ -16,10 +16,12 @@ dependencies = [
 paper-analysis-dataset-rebuild = "paper_analysis_dataset.tools.rebuild_paper_filter_benchmark:main"
 paper-analysis-dataset-annotate = "paper_analysis_dataset.tools.annotate_paper_filter_benchmark:main"
 paper-analysis-dataset-backfill = "paper_analysis_dataset.tools.backfill_paper_filter_abstract_zh:main"
+paper-analysis-dataset-translate-abstract-zh-codex = "paper_analysis_dataset.tools.translate_paper_filter_abstract_zh_codex:main"
 paper-analysis-dataset-annotation-app = "paper_analysis_dataset.web.annotation_app:main"
 paper-analysis-dataset-local-ci = "paper_analysis_dataset.tools.local_ci:main"
 paper-analysis-dataset-evaluate = "paper_analysis_dataset.tools.evaluate_paper_filter_benchmark:main"
 paper-analysis-dataset-rebalance = "paper_analysis_dataset.tools.rebalance_paper_filter_benchmark:main"
+paper-analysis-dataset-validate-schema = "paper_analysis_dataset.tools.validate_paper_filter_schema:main"
 
 [tool.setuptools.packages.find]
 include = ["paper_analysis_dataset*"]
