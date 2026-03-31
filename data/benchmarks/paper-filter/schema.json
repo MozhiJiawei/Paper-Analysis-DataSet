@@ -1,6 +1,6 @@
 {
   "name": "paper-filter",
-  "version": "2026-03-26",
+  "version": "2026-03-31",
   "description": "单版本 paper-filter benchmark 协议。",
   "files": {
     "records": "records.jsonl",
@@ -13,6 +13,7 @@
   "record_fields": {
     "paper_id": "string",
     "title": "string",
+    "title_zh": "string",
     "abstract": "string",
     "abstract_zh": "string",
     "authors": "string[]",

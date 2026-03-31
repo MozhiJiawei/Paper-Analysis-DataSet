@@ -49,7 +49,7 @@ class BenchmarkSchemaValidatorTests(unittest.TestCase):
         summary = validate_benchmark_schema(self.benchmark_root)
 
         self.assertTrue(summary["ok"])
-        self.assertEqual(build_schema_payload()["version"], "2026-03-26")
+        self.assertEqual(build_schema_payload()["version"], "2026-03-31")
         self.assertEqual(5, summary["file_counts"]["records"])
 
     def test_validator_rejects_invalid_record_field_type(self) -> None:

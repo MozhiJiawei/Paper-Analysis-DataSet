@@ -33,6 +33,7 @@ class AnnotationAppState:
         for paper_id, record in records.items():
             has_conflict = paper_id in conflicts and not conflicts[paper_id].is_resolved
             human_completed = paper_id in human
+            seed = human.get(paper_id) or ai.get(paper_id)
             negative_tier = _derive_negative_tier(record=record)
             status = _derive_status(
                 has_conflict=has_conflict,
@@ -45,8 +46,13 @@ class AnnotationAppState:
                 {
                     "paper_id": paper_id,
                     "title": record.title,
+                    "title_zh": record.title_zh,
+                    "display_title": _display_title(record),
                     "venue": record.venue,
-                    "primary_research_object": record.primary_research_object,
+                    "primary_research_object": _display_primary_research_object(
+                        record=record,
+                        seed=seed,
+                    ),
                     "negative_tier": negative_tier,
                     "negative_tier_label": _negative_tier_label(negative_tier),
                     "ai_completed": paper_id in ai,
@@ -60,10 +66,10 @@ class AnnotationAppState:
 
     def list_status_counts(self) -> dict[str, int]:
         counts = {"all": 0, "negative": 0, "pending": 0, "completed": 0, "conflict": 0}
-        for row in self.list_papers(status_filter="all"):
+        rows = self.list_papers(status_filter="all")
+        counts["all"] = len(rows)
+        for row in rows:
             counts[str(row["status"])] += 1
-            if str(row["status"]) != "conflict":
-                counts["all"] += 1
         return counts
 
     def paper_detail(self, paper_id: str) -> dict[str, object]:
@@ -116,7 +122,9 @@ class AnnotationAppState:
                 {
                     "paper_id": conflict.paper_id,
                     "title": record.title,
-                    "abstract": record.abstract,
+                    "title_zh": record.title_zh,
+                    "display_title": _display_title(record),
+                    "display_abstract": _display_abstract(record),
                     "conflicting_fields": conflict.conflicting_fields,
                     "resolved": conflict.is_resolved,
                     "codex": conflict.codex_annotation,
@@ -152,9 +160,9 @@ def _derive_status(*, has_conflict: bool, human_completed: bool, negative_tier: 
 def _status_label(status: str) -> str:
     return {
         "all": "全部",
-        "negative": "负样本（待抽检）",
+        "negative": "待抽检",
         "pending": "待复标",
-        "completed": "已复标",
+        "completed": "已完成",
         "conflict": "有冲突",
     }[status]
 
@@ -189,3 +197,21 @@ def _same_annotation_payload(left: AnnotationRecord, right: AnnotationRecord) ->
         and left.evidence_spans == right.evidence_spans
         and left.notes == right.notes
     )
+
+
+def _display_title(record: BenchmarkRecord) -> str:
+    return record.title_zh or record.title
+
+
+def _display_primary_research_object(
+    *,
+    record: BenchmarkRecord,
+    seed: AnnotationRecord | None,
+) -> str:
+    if seed is not None:
+        return seed.primary_research_object
+    return record.primary_research_object
+
+
+def _display_abstract(record: BenchmarkRecord) -> str:
+    return record.abstract_zh or record.abstract

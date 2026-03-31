@@ -99,9 +99,10 @@ class BenchmarkDatasetContractTests(unittest.TestCase):
         payload = json.loads(repository.schema_path.read_text(encoding="utf-8"))
 
         self.assertEqual("paper-filter", payload["name"])
-        self.assertEqual("2026-03-26", payload["version"])
+        self.assertEqual("2026-03-31", payload["version"])
         self.assertEqual("annotations-ai.jsonl", payload["files"]["annotations_ai"])
         self.assertEqual("merged.jsonl", payload["files"]["merged"])
+        self.assertEqual("string", payload["record_fields"]["title_zh"])
         self.assertEqual("string", payload["record_fields"]["abstract_zh"])
         self.assertNotIn("target_preference_labels", payload["record_fields"])
         self.assertNotIn("target_preference_labels", payload["annotation_fields"])

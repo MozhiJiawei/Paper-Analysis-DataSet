@@ -6,7 +6,7 @@ from paper_analysis_dataset.domain.benchmark import (
 )
 
 
-SCHEMA_VERSION = "2026-03-26"
+SCHEMA_VERSION = "2026-03-31"
 
 
 def build_schema_payload() -> dict[str, object]:
@@ -25,6 +25,7 @@ def build_schema_payload() -> dict[str, object]:
         "record_fields": {
             "paper_id": "string",
             "title": "string",
+            "title_zh": "string",
             "abstract": "string",
             "abstract_zh": "string",
             "authors": "string[]",

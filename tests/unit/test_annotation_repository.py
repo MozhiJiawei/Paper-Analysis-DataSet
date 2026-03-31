@@ -120,6 +120,7 @@ class AnnotationRepositoryTests(unittest.TestCase):
                 BenchmarkRecord(
                     paper_id="paper-1",
                     title="Root Table Record",
+                    title_zh="根主表记录",
                     abstract="A paper about inference.",
                     abstract_zh="一篇关于推理的论文。",
                     authors=["Alice"],
@@ -148,6 +149,7 @@ class AnnotationRepositoryTests(unittest.TestCase):
         self.assertNotIn('"final_labeler_ids"', payload)
         self.assertNotIn('"final_review_status"', payload)
         self.assertNotIn('"final_evidence_spans"', payload)
+        self.assertIn('"title_zh"', payload)
         self.assertIn('"abstract_zh"', payload)
 
 

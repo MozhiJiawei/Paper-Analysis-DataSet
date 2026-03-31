@@ -2,8 +2,11 @@
 {% block content %}
 {% for row in rows %}
 <section class="panel" id="{{ row.paper_id }}">
-  <h2>{{ row.title }}</h2>
-  <p class="muted">{{ row.abstract }}</p>
+  <h2>{{ row.display_title }}</h2>
+  {% if row.title_zh %}
+  <p class="muted">{{ row.title }}</p>
+  {% endif %}
+  <p class="muted">{{ row.display_abstract }}</p>
   <p>冲突字段：{{ row.conflicting_fields|join("、") }}</p>
   <div class="two-column">
     <div>
@@ -33,7 +36,7 @@
       以 AI 为准
     </label>
     <label class="checkbox-row">
-      <input type="radio" name="winner" value="human" {% if row.resolved_choice == "human" %}checked{% endif %}>
+      <input type="radio" name="winner" value="human" {% if row.resolved_choice == "human" or row.resolved_choice is none %}checked{% endif %}>
       以 Human 为准
     </label>
     <button type="submit">保存仲裁</button>

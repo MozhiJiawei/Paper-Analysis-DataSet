@@ -11,6 +11,7 @@ from typing import Callable
 
 Runner = Callable[[str], str]
 DEFAULT_CODEX_CLI_MODEL = "gpt-5.1-codex-mini"
+BLOCKED_CODEX_CLI_MODELS = {"gpt-5.4"}
 
 
 @dataclass(slots=True)
@@ -29,6 +30,7 @@ class CodexCliClient:
 
     def __post_init__(self) -> None:
         self.concurrency = _validate_concurrency(self.concurrency)
+        self.model = _validate_model(self.model)
         self._executor_lock = threading.Lock()
 
     def submit(self, prompt: str) -> Future[str]:
@@ -68,12 +70,13 @@ class CodexCliClient:
         return self._executor
 
     def _build_command(self, prompt: str) -> list[str]:
+        model = _validate_model(self.model)
         command = [
             "codex.cmd" if os.name == "nt" else "codex",
             "exec",
         ]
-        if self.model:
-            command.extend(["-m", self.model])
+        if model:
+            command.extend(["-m", model])
         command.append("--dangerously-bypass-approvals-and-sandbox")
         if self.json_mode:
             command.append("--json")
@@ -81,6 +84,21 @@ class CodexCliClient:
             command.append("--ephemeral")
         command.append(prompt)
         return command
+
+
+def _validate_model(model: str | None) -> str | None:
+    if model is None:
+        return None
+    normalized_model = model.strip()
+    normalized_key = normalized_model.lower()
+    # 禁止在 Codex CLI 中选择 GPT-5.4，因为它会显著放大 token 消耗，
+    # 在批量筛选、翻译、标注等高频调用链路里容易快速吃掉额度。
+    if normalized_key in BLOCKED_CODEX_CLI_MODELS:
+        raise ValueError(
+            f"Codex CLI 不允许使用模型：{normalized_model}；"
+            "原因：GPT-5.4 在 Codex CLI 中会大量消耗 token 额度，请改用更轻量模型。"
+        )
+    return normalized_model
 
 
 def _validate_concurrency(value: int) -> int:

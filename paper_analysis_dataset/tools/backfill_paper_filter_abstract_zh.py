@@ -148,6 +148,7 @@ def _build_translated_record(record: BenchmarkRecord, abstract_zh: str) -> Bench
     return BenchmarkRecord(
         paper_id=record.paper_id,
         title=record.title,
+        title_zh=record.title_zh,
         abstract=record.abstract,
         abstract_zh=abstract_zh,
         authors=record.authors,

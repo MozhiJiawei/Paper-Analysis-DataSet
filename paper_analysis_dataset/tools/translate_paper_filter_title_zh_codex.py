@@ -10,15 +10,13 @@ import shutil
 
 from paper_analysis_dataset.domain.benchmark import BenchmarkRecord
 from paper_analysis_dataset.services.annotation_repository import AnnotationRepository
-from paper_analysis_dataset.services.codex_abstract_translator import CodexAbstractTranslator
+from paper_analysis_dataset.services.codex_title_translator import CodexTitleTranslator
 from paper_analysis_dataset.shared.clients.codex_cli_client import DEFAULT_CODEX_CLI_MODEL
 from paper_analysis_dataset.shared.paths import ARTIFACTS_DIR, DATASET_ROOT_DIR
 
 
 BENCHMARK_ROOT = DATASET_ROOT_DIR / "data" / "benchmarks" / "paper-filter"
-DEFAULT_OUTPUT_PATH = (
-    ARTIFACTS_DIR / "translations" / "paper-filter" / "abstract-zh-codex.jsonl"
-)
+DEFAULT_OUTPUT_PATH = ARTIFACTS_DIR / "translations" / "paper-filter" / "title-zh-codex.jsonl"
 DEFAULT_BACKUP_DIR = ARTIFACTS_DIR / "backups" / "paper-filter"
 DEFAULT_WORKERS = 5
 DEFAULT_CHECKPOINT_EVERY = 5
@@ -29,7 +27,6 @@ class TranslationPatch:
     paper_id: str
     title: str
     title_zh: str
-    abstract_zh: str
     model: str
     translated_at: str
 
@@ -38,25 +35,23 @@ class TranslationPatch:
             "paper_id": self.paper_id,
             "title": self.title,
             "title_zh": self.title_zh,
-            "abstract_zh": self.abstract_zh,
             "model": self.model,
             "translated_at": self.translated_at,
         }
 
 
-def export_codex_abstract_translations(
+def export_codex_title_translations(
     *,
     limit: int | None = None,
     workers: int = DEFAULT_WORKERS,
     checkpoint_every: int = DEFAULT_CHECKPOINT_EVERY,
     benchmark_root: Path = BENCHMARK_ROOT,
     output_path: Path = DEFAULT_OUTPUT_PATH,
-    model: str | None = DEFAULT_CODEX_CLI_MODEL,
     apply_to_records: bool = False,
     backup_dir: Path = DEFAULT_BACKUP_DIR,
 ) -> dict[str, object]:
     repository = AnnotationRepository(benchmark_root)
-    translator = CodexAbstractTranslator(model=model, concurrency=workers)
+    translator = CodexTitleTranslator(concurrency=workers)
     records = repository.load_records()
     updated_records = list(records)
     existing_patches = _load_existing_patches(output_path)
@@ -69,7 +64,7 @@ def export_codex_abstract_translations(
         pending_indexes = pending_indexes[:limit]
     checkpoint_every = max(1, checkpoint_every)
     print(
-        f"[translate-codex] start total={len(pending_indexes)} workers={workers} checkpoint_every={checkpoint_every}"
+        f"[translate-title-codex] start total={len(pending_indexes)} workers={workers} checkpoint_every={checkpoint_every} model={DEFAULT_CODEX_CLI_MODEL}"
     )
 
     if not pending_indexes:
@@ -82,7 +77,7 @@ def export_codex_abstract_translations(
             "remaining_records": sum(1 for record in records if _needs_translation(record)),
             "workers": workers,
             "checkpoint_every": checkpoint_every,
-            "model": model or "",
+            "model": DEFAULT_CODEX_CLI_MODEL,
             "apply_to_records": apply_to_records,
             "backup_path": "",
         }
@@ -97,7 +92,7 @@ def export_codex_abstract_translations(
     for _ in range(min(workers, len(pending_indexes))):
         if (index := next(pending_iter, None)) is None:
             break
-        future = _submit_translation(records[index], translator, model=model)
+        future = _submit_translation(records[index], translator)
         pending_futures[future] = index
 
     while pending_futures:
@@ -106,26 +101,24 @@ def export_codex_abstract_translations(
             index = pending_futures.pop(future)
             patch = future.result()
             patches[patch.paper_id] = patch
-            updated_records[index] = _build_translated_record(records[index], patch.abstract_zh)
+            updated_records[index] = _build_translated_record(records[index], patch.title_zh)
             translated_count += 1
-            print(f"[translate-codex] {translated_count}/{total_pending} paper_id={patch.paper_id}")
+            print(f"[translate-title-codex] {translated_count}/{total_pending} paper_id={patch.paper_id}")
 
             if translated_count % checkpoint_every == 0:
                 _write_patches(output_path, patches)
                 if apply_to_records:
                     repository.write_records(updated_records)
-                print(f"[translate-codex] checkpoint {translated_count}/{total_pending}")
+                print(f"[translate-title-codex] checkpoint {translated_count}/{total_pending}")
 
             if (next_index := next(pending_iter, None)) is not None:
-                next_future = _submit_translation(records[next_index], translator, model=model)
+                next_future = _submit_translation(records[next_index], translator)
                 pending_futures[next_future] = next_index
 
     _write_patches(output_path, patches)
     if apply_to_records:
         repository.write_records(updated_records)
-    remaining_records = sum(
-        1 for record in updated_records if _needs_translation(record)
-    )
+    remaining_records = sum(1 for record in updated_records if _needs_translation(record))
     summary = {
         "benchmark_root": str(benchmark_root),
         "output_path": str(output_path),
@@ -135,17 +128,17 @@ def export_codex_abstract_translations(
         "remaining_records": remaining_records,
         "workers": workers,
         "checkpoint_every": checkpoint_every,
-        "model": model or "",
+        "model": DEFAULT_CODEX_CLI_MODEL,
         "apply_to_records": apply_to_records,
         "backup_path": str(backup_path) if backup_path is not None else "",
     }
-    print(f"[translate-codex] done exported={translated_count} remaining={remaining_records}")
+    print(f"[translate-title-codex] done exported={translated_count} remaining={remaining_records}")
     return summary
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="用 Codex CLI 并发生成缺失中文摘要，默认只导出补丁文件，不修改现有数据集"
+        description="用 Codex CLI 并发生成缺失中文标题，固定使用 gpt-5.1-codex-mini"
     )
     parser.add_argument("--limit", type=int, default=None, help="本次最多翻译多少条记录")
     parser.add_argument(
@@ -173,30 +166,25 @@ def main() -> None:
         help="补丁 JSONL 输出路径，默认写到 artifacts 目录",
     )
     parser.add_argument(
-        "--model",
-        default=None,
-        help=f"可选 Codex 模型名，默认 {DEFAULT_CODEX_CLI_MODEL}",
-    )
-    parser.add_argument(
         "--apply-to-records",
         action="store_true",
         help="将译文安全回填到 benchmark records.jsonl；启用后会先自动备份原文件",
     )
     args = parser.parse_args()
-    summary = export_codex_abstract_translations(
+    summary = export_codex_title_translations(
         limit=args.limit,
         workers=args.workers,
         checkpoint_every=args.checkpoint_every,
         benchmark_root=args.benchmark_root,
         output_path=args.output_path,
-        model=args.model,
         apply_to_records=args.apply_to_records,
+        backup_dir=DEFAULT_BACKUP_DIR,
     )
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
 def _needs_translation(record: BenchmarkRecord) -> bool:
-    return bool(record.abstract.strip()) and not record.abstract_zh.strip()
+    return bool(record.title.strip()) and not record.title_zh.strip()
 
 
 def _load_existing_patches(path: Path) -> dict[str, TranslationPatch]:
@@ -213,11 +201,10 @@ def _load_existing_patches(path: Path) -> dict[str, TranslationPatch]:
             paper_id=str(payload.get("paper_id", "")).strip(),
             title=str(payload.get("title", "")).strip(),
             title_zh=str(payload.get("title_zh", "")).strip(),
-            abstract_zh=str(payload.get("abstract_zh", "")).strip(),
             model=str(payload.get("model", "")).strip(),
             translated_at=str(payload.get("translated_at", "")).strip(),
         )
-        if not patch.paper_id or not patch.abstract_zh:
+        if not patch.paper_id or not patch.title_zh:
             raise ValueError(f"补丁文件记录缺少必要字段：{path}")
         patches[patch.paper_id] = patch
     return patches
@@ -246,15 +233,11 @@ def _backup_records_path(records_path: Path, backup_dir: Path) -> Path:
 
 def _submit_translation(
     record: BenchmarkRecord,
-    translator: CodexAbstractTranslator,
-    *,
-    model: str | None,
+    translator: CodexTitleTranslator,
 ) -> Future[TranslationPatch]:
     outer_future: Future[TranslationPatch] = Future()
     inner_future = translator.submit_translate(record.to_candidate_paper())
-    inner_future.add_done_callback(
-        lambda done: _resolve_translation(record, done, outer_future, model=model)
-    )
+    inner_future.add_done_callback(lambda done: _resolve_translation(record, done, outer_future))
     return outer_future
 
 
@@ -262,8 +245,6 @@ def _resolve_translation(
     record: BenchmarkRecord,
     inner_future: Future[str],
     outer_future: Future[TranslationPatch],
-    *,
-    model: str | None,
 ) -> None:
     if outer_future.done():
         return
@@ -273,9 +254,8 @@ def _resolve_translation(
             TranslationPatch(
                 paper_id=record.paper_id,
                 title=record.title,
-                title_zh=record.title_zh,
-                abstract_zh=inner_future.result(),
-                model=model or "",
+                title_zh=inner_future.result(),
+                model=DEFAULT_CODEX_CLI_MODEL,
                 translated_at=translated_at,
             )
         )
@@ -283,13 +263,13 @@ def _resolve_translation(
         outer_future.set_exception(exc)
 
 
-def _build_translated_record(record: BenchmarkRecord, abstract_zh: str) -> BenchmarkRecord:
+def _build_translated_record(record: BenchmarkRecord, title_zh: str) -> BenchmarkRecord:
     return BenchmarkRecord(
         paper_id=record.paper_id,
         title=record.title,
-        title_zh=record.title_zh,
+        title_zh=title_zh,
         abstract=record.abstract,
-        abstract_zh=abstract_zh,
+        abstract_zh=record.abstract_zh,
         authors=record.authors,
         venue=record.venue,
         year=record.year,

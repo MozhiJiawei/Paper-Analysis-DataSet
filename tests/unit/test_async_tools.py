@@ -14,6 +14,9 @@ from paper_analysis_dataset.tools.backfill_paper_filter_abstract_zh import backf
 from paper_analysis_dataset.tools.translate_paper_filter_abstract_zh_codex import (
     export_codex_abstract_translations,
 )
+from paper_analysis_dataset.tools.translate_paper_filter_title_zh_codex import (
+    export_codex_title_translations,
+)
 
 
 def _resolved_future(value: object) -> Future[object]:
@@ -229,6 +232,69 @@ class BackfillAbstractToolTests(unittest.TestCase):
             self.assertIn('"abstract_zh": "译文：A"', payload)
             self.assertNotIn('"paper_id": "paper-2"', payload)
             self.assertIn("[translate-codex] checkpoint 1/1", stdout.getvalue())
+
+    def test_codex_title_translation_export_writes_artifact_patch_only(self) -> None:
+        record_1 = BenchmarkRecord(
+            paper_id="paper-1",
+            title="A",
+            title_zh="",
+            abstract="a",
+            abstract_zh="摘要A",
+            authors=["Alice"],
+            venue="ICLR 2025",
+            year=2025,
+            source="conference",
+            source_path="tests.json",
+            primary_research_object="LLM",
+        )
+        record_2 = BenchmarkRecord(
+            paper_id="paper-2",
+            title="B",
+            title_zh="已有中文标题",
+            abstract="b",
+            abstract_zh="摘要B",
+            authors=["Bob"],
+            venue="ICLR 2025",
+            year=2025,
+            source="conference",
+            source_path="tests.json",
+            primary_research_object="LLM",
+        )
+        submitted: list[str] = []
+
+        class FakeRepository:
+            def load_records(self) -> list[BenchmarkRecord]:
+                return [record_1, record_2]
+
+        class FakeTranslator:
+            def __init__(self, *, concurrency: int) -> None:
+                self.concurrency = concurrency
+
+            def submit_translate(self, candidate: CandidatePaper) -> Future[str]:
+                submitted.append(candidate.paper_id)
+                return _resolved_future(f"中文标题：{candidate.title}")
+
+        with TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "title-patches.jsonl"
+            with patch("paper_analysis_dataset.tools.translate_paper_filter_title_zh_codex.AnnotationRepository", return_value=FakeRepository()):
+                with patch("paper_analysis_dataset.tools.translate_paper_filter_title_zh_codex.CodexTitleTranslator", FakeTranslator):
+                    stdout = StringIO()
+                    with redirect_stdout(stdout):
+                        summary = export_codex_title_translations(
+                            workers=2,
+                            checkpoint_every=1,
+                            output_path=output_path,
+                        )
+
+            self.assertEqual(["paper-1"], submitted)
+            self.assertEqual(1, summary["exported_records"])
+            self.assertEqual("gpt-5.1-codex-mini", summary["model"])
+            self.assertTrue(output_path.exists())
+            payload = output_path.read_text(encoding="utf-8")
+            self.assertIn('"paper_id": "paper-1"', payload)
+            self.assertIn('"title_zh": "中文标题：A"', payload)
+            self.assertNotIn('"paper_id": "paper-2"', payload)
+            self.assertIn("[translate-title-codex] checkpoint 1/1", stdout.getvalue())
 
     def test_codex_translation_export_can_apply_to_records_with_backup(self) -> None:
         record_1 = BenchmarkRecord(
