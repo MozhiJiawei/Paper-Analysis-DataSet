@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from paper_analysis_dataset.domain.benchmark import AnnotationRecord
+from paper_analysis_dataset.domain.benchmark import AnnotationRecord, BenchmarkRecord
 from paper_analysis_dataset.domain.benchmark import PREFERENCE_LABELS, RESEARCH_OBJECT_LABELS
 from paper_analysis_dataset.services.annotation_repository import AnnotationRepository
 from paper_analysis_dataset.services.benchmark_reporter import build_distribution_report
@@ -33,9 +33,11 @@ class AnnotationAppState:
         for paper_id, record in records.items():
             has_conflict = paper_id in conflicts and not conflicts[paper_id].is_resolved
             human_completed = paper_id in human
+            negative_tier = _derive_negative_tier(record=record)
             status = _derive_status(
                 has_conflict=has_conflict,
                 human_completed=human_completed,
+                negative_tier=negative_tier,
             )
             if status_filter != "all" and status != status_filter:
                 continue
@@ -45,6 +47,8 @@ class AnnotationAppState:
                     "title": record.title,
                     "venue": record.venue,
                     "primary_research_object": record.primary_research_object,
+                    "negative_tier": negative_tier,
+                    "negative_tier_label": _negative_tier_label(negative_tier),
                     "ai_completed": paper_id in ai,
                     "human_completed": human_completed,
                     "has_conflict": has_conflict,
@@ -54,29 +58,12 @@ class AnnotationAppState:
             )
         return rows
 
-    def list_paper_counts(self) -> dict[str, int]:
-        records = {
-            item.paper_id
-            for item in self.repository.load_records()
-        }
-        human = {
-            item.paper_id
-            for item in self.repository.load_annotations(self.repository.annotations_human_path)
-        }
-        conflicts = {
-            item.paper_id
-            for item in self.repository.load_conflicts(
-                self.repository.conflicts_path
-            )
-            if not item.is_resolved
-        }
-        counts = {"all": len(records), "pending": 0, "completed": 0, "conflict": 0}
-        for paper_id in records:
-            status = _derive_status(
-                has_conflict=paper_id in conflicts,
-                human_completed=paper_id in human,
-            )
-            counts[status] += 1
+    def list_status_counts(self) -> dict[str, int]:
+        counts = {"all": 0, "negative": 0, "pending": 0, "completed": 0, "conflict": 0}
+        for row in self.list_papers(status_filter="all"):
+            counts[str(row["status"])] += 1
+            if str(row["status"]) != "conflict":
+                counts["all"] += 1
         return counts
 
     def paper_detail(self, paper_id: str) -> dict[str, object]:
@@ -152,9 +139,11 @@ class AnnotationAppState:
         }
 
 
-def _derive_status(*, has_conflict: bool, human_completed: bool) -> str:
+def _derive_status(*, has_conflict: bool, human_completed: bool, negative_tier: str) -> str:
     if has_conflict:
         return "conflict"
+    if negative_tier == "negative" and not human_completed:
+        return "negative"
     if human_completed:
         return "completed"
     return "pending"
@@ -163,10 +152,22 @@ def _derive_status(*, has_conflict: bool, human_completed: bool) -> str:
 def _status_label(status: str) -> str:
     return {
         "all": "全部",
+        "negative": "负样本（待抽检）",
         "pending": "待复标",
         "completed": "已复标",
         "conflict": "有冲突",
     }[status]
+
+
+def _derive_negative_tier(*, record: BenchmarkRecord) -> str:
+    return record.candidate_negative_tier
+
+
+def _negative_tier_label(negative_tier: str) -> str:
+    return {
+        "positive": "正样本",
+        "negative": "负样本",
+    }[negative_tier]
 
 
 def _resolved_choice(conflict: object) -> str | None:

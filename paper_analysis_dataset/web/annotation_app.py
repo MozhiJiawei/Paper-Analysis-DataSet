@@ -41,7 +41,7 @@ class AnnotationApplication:
             if path == "/papers" and method == "GET":
                 query = parse_qs(str(environ.get("QUERY_STRING", "")))
                 status_filter = query.get("status", ["all"])[0]
-                if status_filter not in {"all", "pending", "completed", "conflict"}:
+                if status_filter not in {"all", "negative", "pending", "completed", "conflict"}:
                     status_filter = "all"
                 return self._html_response(
                     start_response,
@@ -50,7 +50,8 @@ class AnnotationApplication:
                         "title": "候选池列表",
                         "rows": self.state.list_papers(status_filter=status_filter),
                         "status_filter": status_filter,
-                        "counts": self.state.list_paper_counts(),
+                        "status_counts": self.state.list_status_counts(),
+                        "counts": self.state.list_status_counts(),
                     },
                 )
             if path.startswith("/papers/") and method == "GET":
