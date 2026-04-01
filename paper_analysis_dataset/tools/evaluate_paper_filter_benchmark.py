@@ -56,6 +56,12 @@ def build_parser() -> ArgumentParser:
         default=None,
         help="可选 benchmark 根目录，默认使用仓内 data/benchmarks/paper-filter",
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=50,
+        help="单次请求发送的样本数，默认 50",
+    )
     return parser
 
 
@@ -65,6 +71,7 @@ def evaluate_benchmark(
     limit: int = 0,
     output_dir: Path,
     timeout_seconds: float = 10.0,
+    batch_size: int = 50,
     fail_fast: bool = False,
     sample_seed: int = 42,
     benchmark_root: Path | None = None,
@@ -74,33 +81,68 @@ def evaluate_benchmark(
     truths_all = repository.load_annotations(repository.merged_path)
     selected_truths = _sample_truths(truths_all, limit=limit, sample_seed=sample_seed)
     client = EvaluationApiClient(base_url=base_url, timeout_seconds=timeout_seconds)
+    print(f"[evaluate] start total={len(selected_truths)} base_url={base_url}")
 
     truths: list[AnnotationRecord] = []
     predictions: list[AnnotationRecord] = []
     request_error_count = 0
     protocol_error_count = 0
 
-    for index, truth in enumerate(selected_truths, start=1):
-        record = record_map.get(truth.paper_id)
-        if record is None:
-            raise ValueError(f"records.jsonl 中缺少 benchmark 样本：{truth.paper_id}")
-        candidate = record.to_candidate_paper()
-        request_id = f"benchmark:{candidate.paper_id}:{index}"
+    if batch_size <= 0:
+        raise ValueError("batch_size 必须大于 0")
+
+    for batch_start in range(0, len(selected_truths), batch_size):
+        batch_truths = selected_truths[batch_start : batch_start + batch_size]
+        batch_items: list[tuple[AnnotationRecord, str, object]] = []
+        for offset, truth in enumerate(batch_truths, start=batch_start + 1):
+            record = record_map.get(truth.paper_id)
+            if record is None:
+                raise ValueError(f"records.jsonl 中缺少 benchmark 样本：{truth.paper_id}")
+            candidate = record.to_candidate_paper()
+            request_id = f"benchmark:{candidate.paper_id}:{offset}"
+            batch_items.append((truth, request_id, candidate))
         try:
-            prediction = client.annotate(candidate, request_id=request_id)
+            batch_predictions = client.annotate_many(
+                [(candidate, request_id) for truth, request_id, candidate in batch_items]
+            )
         except EvaluationApiError:
-            request_error_count += 1
+            request_error_count += len(batch_items)
+            last_truth = batch_items[-1][0]
+            print(
+                f"[evaluate] {min(batch_start + len(batch_items), len(selected_truths))}/{len(selected_truths)} "
+                f"errors={request_error_count} protocol_errors={protocol_error_count} "
+                f"paper_id={last_truth.paper_id}"
+            )
             if fail_fast:
+                print(f"[evaluate] fail_fast paper_id={last_truth.paper_id}")
                 raise
             continue
         except EvaluationProtocolError:
-            protocol_error_count += 1
+            protocol_error_count += len(batch_items)
+            last_truth = batch_items[-1][0]
+            print(
+                f"[evaluate] {min(batch_start + len(batch_items), len(selected_truths))}/{len(selected_truths)} "
+                f"errors={request_error_count} protocol_errors={protocol_error_count} "
+                f"paper_id={last_truth.paper_id}"
+            )
             if fail_fast:
+                print(f"[evaluate] fail_fast paper_id={last_truth.paper_id}")
                 raise
             continue
-        prediction.paper_id = truth.paper_id
-        truths.append(truth)
-        predictions.append(prediction)
+        if len(batch_predictions) != len(batch_items):
+            raise EvaluationProtocolError("评测接口返回条目数与请求数不一致")
+        for (truth, _request_id, _candidate), prediction in zip(
+            batch_items, batch_predictions, strict=True
+        ):
+            prediction.paper_id = truth.paper_id
+            truths.append(truth)
+            predictions.append(prediction)
+        last_truth = batch_items[-1][0]
+        print(
+            f"[evaluate] {min(batch_start + len(batch_items), len(selected_truths))}/{len(selected_truths)} "
+            f"errors={request_error_count} protocol_errors={protocol_error_count} "
+            f"paper_id={last_truth.paper_id}"
+        )
 
     report = build_evaluation_report(
         truths=truths,
@@ -114,6 +156,7 @@ def evaluate_benchmark(
         "artifacts": {key: str(path) for key, path in artifacts.items()},
         "report": report,
     }
+    print(f"[evaluate] done output_dir={output_dir}")
     return summary
 
 
@@ -138,6 +181,7 @@ def main() -> None:
         limit=args.limit,
         output_dir=args.output_dir,
         timeout_seconds=args.timeout_seconds,
+        batch_size=args.batch_size,
         fail_fast=args.fail_fast,
         sample_seed=args.sample_seed,
         benchmark_root=args.benchmark_root,
