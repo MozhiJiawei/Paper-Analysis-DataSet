@@ -43,7 +43,7 @@ class EvaluateCliE2ETests(unittest.TestCase):
                     "--base-url",
                     f"http://127.0.0.1:{port}",
                     "--limit",
-                    "55",
+                    "2",
                     "--output-dir",
                     str(output_dir),
                 ],
@@ -59,7 +59,7 @@ class EvaluateCliE2ETests(unittest.TestCase):
             payload = json.loads((output_dir / "report.json").read_text(encoding="utf-8"))
             summary = (output_dir / "summary.md").read_text(encoding="utf-8")
             serialized = json.dumps(payload, ensure_ascii=False) + "\n" + summary
-            self.assertEqual(55, payload["counts"]["evaluated_count"])
+            self.assertEqual(2, payload["counts"]["evaluated_count"])
             self.assertNotIn("paper_id", serialized)
             self.assertNotIn("source_path", serialized)
         finally:

@@ -265,6 +265,7 @@ class BenchmarkBuilder:
                 BenchmarkRecord(
                     paper_id=candidate.paper_id,
                     title=candidate.title,
+                    title_zh=candidate.title_zh,
                     abstract=candidate.abstract,
                     abstract_zh=abstract_zh,
                     authors=candidate.authors,

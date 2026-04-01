@@ -17,6 +17,7 @@ def _candidate(*, paper_id: str, title: str) -> CandidatePaper:
     return CandidatePaper(
         paper_id=paper_id,
         title=title,
+        title_zh=f"{title} 中文标题",
         abstract=f"{title} abstract.",
         abstract_zh=f"{title} 中文摘要。",
         authors=["Alice"],
@@ -75,9 +76,489 @@ class AnnotationApplicationTests(unittest.TestCase):
 
         html = b"".join(response).decode("utf-8")
         self.assertIn("候选池列表", html)
+        self.assertIn("Annotation App Test 中文标题", html)
         self.assertIn("Annotation App Test", html)
         self.assertIn("状态筛选", html)
+        self.assertIn("待抽检", html)
+        self.assertIn("已完成", html)
+        self.assertIn("负标签", html)
+        self.assertIn("正样本", html)
         self.assertTrue(any(header[0] == "Content-Type" for header in headers))
+
+    def test_papers_route_supports_negative_status_filter(self) -> None:
+        """验证候选池一级分类支持负样本待抽检筛选。"""
+
+        temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-negative-filter"
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
+
+        repository = AnnotationRepository(temp_root)
+        repository.write_candidates(
+            [
+                _candidate(paper_id="paper-positive", title="Positive Candidate"),
+                CandidatePaper(
+                    paper_id="paper-negative",
+                    title="Negative Candidate",
+                    title_zh="负样本候选论文",
+                    abstract="Negative abstract.",
+                    abstract_zh="Negative 中文摘要。",
+                    authors=["Alice"],
+                    venue="ICLR 2025",
+                    year=2025,
+                    source="conference",
+                    source_path="tests.json",
+                    primary_research_object="LLM",
+                    candidate_preference_labels=[],
+                    candidate_negative_tier="negative",
+                ),
+            ]
+        )
+        repository.write_annotations(
+            [
+                _ai_annotation(paper_id="paper-positive"),
+                AnnotationRecord(
+                    paper_id="paper-negative",
+                    labeler_id="codex_cli",
+                    primary_research_object="LLM",
+                    preference_labels=[],
+                    negative_tier="negative",
+                    evidence_spans={"negative": ["not relevant"]},
+                    review_status="pending",
+                ),
+            ],
+            repository.annotations_ai_path,
+        )
+
+        app = AnnotationApplication(repository)
+        response = app(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/papers",
+                "QUERY_STRING": "status=negative",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("200", status),
+        )
+
+        html = b"".join(response).decode("utf-8")
+        self.assertIn("负样本候选论文", html)
+        self.assertIn("Negative Candidate", html)
+        self.assertNotIn("Positive Candidate", html)
+        self.assertIn("负样本", html)
+        self.assertIn("一键完成全部待抽检", html)
+        self.assertNotIn(">一键完成<", html)
+
+    def test_papers_route_prefers_ai_research_object_over_candidate_seed(self) -> None:
+        """验证列表页主研究对象优先显示 AI 预标，而不是候选种子。"""
+
+        temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-ai-object-priority"
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
+
+        repository = AnnotationRepository(temp_root)
+        repository.write_candidates(
+            [
+                CandidatePaper(
+                    paper_id="paper-vision",
+                    title="E-MoFlow",
+                    title_zh="E-MoFlow 中文标题",
+                    abstract="Optical flow and ego-motion from event data.",
+                    abstract_zh="中文摘要。",
+                    authors=["Alice"],
+                    venue="NIPS 2025",
+                    year=2025,
+                    source="conference",
+                    source_path="tests.json",
+                    primary_research_object="LLM",
+                    candidate_preference_labels=[],
+                    candidate_negative_tier="negative",
+                )
+            ]
+        )
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-vision",
+                    labeler_id="codex_cli",
+                    primary_research_object="计算机视觉",
+                    preference_labels=[],
+                    negative_tier="negative",
+                    evidence_spans={"general": ["optical flow"]},
+                    review_status="pending",
+                )
+            ],
+            repository.annotations_ai_path,
+        )
+
+        app = AnnotationApplication(repository)
+        response = app(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/papers",
+                "QUERY_STRING": "status=negative",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("200", status),
+        )
+
+        html = b"".join(response).decode("utf-8")
+        self.assertIn("计算机视觉", html)
+        self.assertNotIn(">LLM<", html)
+
+    def test_negative_sample_after_human_spot_check_moves_to_completed(self) -> None:
+        """验证负样本抽检后离开待抽检列表并进入已完成。"""
+
+        temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-negative-completed"
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
+
+        repository = AnnotationRepository(temp_root)
+        repository.write_candidates(
+            [
+                CandidatePaper(
+                    paper_id="paper-negative-done",
+                    title="Negative Done Candidate",
+                    title_zh="负样本已复标论文",
+                    abstract="Negative done abstract.",
+                    abstract_zh="Negative done 中文摘要。",
+                    authors=["Alice"],
+                    venue="ICLR 2025",
+                    year=2025,
+                    source="conference",
+                    source_path="tests.json",
+                    primary_research_object="LLM",
+                    candidate_preference_labels=[],
+                    candidate_negative_tier="negative",
+                )
+            ]
+        )
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-negative-done",
+                    labeler_id="codex_cli",
+                    primary_research_object="LLM",
+                    preference_labels=[],
+                    negative_tier="negative",
+                    evidence_spans={"negative": ["ai spot check"]},
+                    review_status="pending",
+                )
+            ],
+            repository.annotations_ai_path,
+        )
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-negative-done",
+                    labeler_id="human_reviewer",
+                    primary_research_object="LLM",
+                    preference_labels=[],
+                    negative_tier="negative",
+                    evidence_spans={"negative": ["human checked"]},
+                    review_status="pending",
+                )
+            ],
+            repository.annotations_human_path,
+        )
+
+        app = AnnotationApplication(repository)
+        negative_response = app(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/papers",
+                "QUERY_STRING": "status=negative",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("200", status),
+        )
+        negative_html = b"".join(negative_response).decode("utf-8")
+        self.assertNotIn("Negative Done Candidate", negative_html)
+
+        completed_response = app(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/papers",
+                "QUERY_STRING": "status=completed",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("200", status),
+        )
+        completed_html = b"".join(completed_response).decode("utf-8")
+        self.assertIn("Negative Done Candidate", completed_html)
+
+    def test_status_counts_use_candidate_negative_tier_and_include_conflict_in_all(self) -> None:
+        """验证顶部计数使用候选负样本层，且全部包含冲突。"""
+
+        temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-status-counts"
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
+
+        repository = AnnotationRepository(temp_root)
+        repository.write_candidates(
+            [
+                CandidatePaper(
+                    paper_id="paper-negative-pending",
+                    title="Negative Pending",
+                    title_zh="负样本待抽检论文",
+                    abstract="Negative pending abstract.",
+                    abstract_zh="Negative pending 中文摘要。",
+                    authors=["Alice"],
+                    venue="ICLR 2025",
+                    year=2025,
+                    source="conference",
+                    source_path="tests.json",
+                    primary_research_object="LLM",
+                    candidate_preference_labels=[],
+                    candidate_negative_tier="negative",
+                ),
+                _candidate(paper_id="paper-positive-pending", title="Positive Pending"),
+                _candidate(paper_id="paper-positive-completed", title="Positive Completed"),
+                _candidate(paper_id="paper-positive-conflict", title="Positive Conflict"),
+            ]
+        )
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-negative-pending",
+                    labeler_id="codex_cli",
+                    primary_research_object="LLM",
+                    preference_labels=["解码策略优化"],
+                    negative_tier="positive",
+                    evidence_spans={"general": ["ai mismatch but should not affect queue count"]},
+                    review_status="pending",
+                ),
+                _ai_annotation(paper_id="paper-positive-pending"),
+                _ai_annotation(paper_id="paper-positive-completed"),
+                _ai_annotation(paper_id="paper-positive-conflict"),
+            ],
+            repository.annotations_ai_path,
+        )
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-positive-completed",
+                    labeler_id="human_reviewer",
+                    primary_research_object="LLM",
+                    preference_labels=["解码策略优化"],
+                    negative_tier="positive",
+                    evidence_spans={"general": ["human done"]},
+                    review_status="pending",
+                ),
+                AnnotationRecord(
+                    paper_id="paper-positive-conflict",
+                    labeler_id="human_reviewer",
+                    primary_research_object="AI 系统 / 基础设施",
+                    preference_labels=["模型压缩"],
+                    negative_tier="positive",
+                    evidence_spans={"general": ["human conflict"]},
+                    review_status="pending",
+                ),
+            ],
+            repository.annotations_human_path,
+        )
+
+        app = AnnotationApplication(repository)
+        app._refresh_merge_outputs()
+
+        counts = app.state.list_status_counts()
+        self.assertEqual(1, counts["negative"])
+        self.assertEqual(1, counts["pending"])
+        self.assertEqual(1, counts["completed"])
+        self.assertEqual(1, counts["conflict"])
+        self.assertEqual(4, counts["all"])
+
+    def test_negative_tab_supports_bulk_complete_and_merges(self) -> None:
+        """验证待抽检页支持批量一键完成，并将结果合入 merged。"""
+
+        temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-one-click-complete"
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
+
+        repository = AnnotationRepository(temp_root)
+        repository.write_candidates(
+            [
+                CandidatePaper(
+                    paper_id="paper-one-click",
+                    title="One Click Negative",
+                    title_zh="一键完成负样本",
+                    abstract="Negative abstract.",
+                    abstract_zh="负样本中文摘要。",
+                    authors=["Alice"],
+                    venue="NIPS 2025",
+                    year=2025,
+                    source="conference",
+                    source_path="tests.json",
+                    primary_research_object="LLM",
+                    candidate_preference_labels=[],
+                    candidate_negative_tier="negative",
+                ),
+                CandidatePaper(
+                    paper_id="paper-one-click-2",
+                    title="Another Negative",
+                    title_zh="另一个待抽检负样本",
+                    abstract="Another negative abstract.",
+                    abstract_zh="另一个负样本中文摘要。",
+                    authors=["Bob"],
+                    venue="NIPS 2025",
+                    year=2025,
+                    source="conference",
+                    source_path="tests.json",
+                    primary_research_object="LLM",
+                    candidate_preference_labels=[],
+                    candidate_negative_tier="negative",
+                ),
+            ]
+        )
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-one-click",
+                    labeler_id="codex_cli",
+                    primary_research_object="计算机视觉",
+                    preference_labels=[],
+                    negative_tier="negative",
+                    evidence_spans={"general": ["optical flow"]},
+                    notes="ai negative",
+                    review_status="pending",
+                ),
+                AnnotationRecord(
+                    paper_id="paper-one-click-2",
+                    labeler_id="codex_cli",
+                    primary_research_object="通用机器学习",
+                    preference_labels=[],
+                    negative_tier="negative",
+                    evidence_spans={"general": ["distribution models"]},
+                    notes="ai negative 2",
+                    review_status="pending",
+                ),
+            ],
+            repository.annotations_ai_path,
+        )
+
+        app = AnnotationApplication(repository)
+        list_response = app(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/papers",
+                "QUERY_STRING": "status=negative",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("200", status),
+        )
+        list_html = b"".join(list_response).decode("utf-8")
+        self.assertIn("一键完成全部待抽检", list_html)
+        self.assertNotIn('action="/papers/paper-one-click/complete"', list_html)
+
+        statuses: list[str] = []
+        headers: list[tuple[str, str]] = []
+        response = app(
+            {
+                "REQUEST_METHOD": "POST",
+                "PATH_INFO": "/papers/complete-negative",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: (statuses.append(status), headers.extend(response_headers)),
+        )
+
+        self.assertEqual([b""], response)
+        self.assertTrue(any(status.startswith("302") for status in statuses))
+        self.assertIn(("Location", "/papers?status=negative&completed=2"), headers)
+
+        human = repository.load_annotations(repository.annotations_human_path)
+        self.assertEqual(2, len(human))
+        self.assertEqual({"paper-one-click", "paper-one-click-2"}, {item.paper_id for item in human})
+
+        merged = repository.load_annotations(repository.merged_path)
+        self.assertEqual(2, len(merged))
+        self.assertEqual({"paper-one-click", "paper-one-click-2"}, {item.paper_id for item in merged})
+
+        completed_response = app(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/papers",
+                "QUERY_STRING": "status=completed",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("200", status),
+        )
+        completed_html = b"".join(completed_response).decode("utf-8")
+        self.assertIn("一键完成负样本", completed_html)
+        self.assertIn("另一个待抽检负样本", completed_html)
+
+    def test_post_negative_spot_check_change_merges_without_conflict(self) -> None:
+        """验证负样本抽检改判后直接写入 merged，不进入冲突。"""
+
+        temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-negative-spot-check"
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
+
+        repository = AnnotationRepository(temp_root)
+        repository.write_candidates(
+            [
+                CandidatePaper(
+                    paper_id="paper-negative-review",
+                    title="Negative Review Candidate",
+                    title_zh="负样本抽检论文",
+                    abstract="Negative review abstract.",
+                    abstract_zh="Negative review 中文摘要。",
+                    authors=["Alice"],
+                    venue="ICLR 2025",
+                    year=2025,
+                    source="conference",
+                    source_path="tests.json",
+                    primary_research_object="LLM",
+                    candidate_preference_labels=[],
+                    candidate_negative_tier="negative",
+                )
+            ]
+        )
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-negative-review",
+                    labeler_id="codex_cli",
+                    primary_research_object="LLM",
+                    preference_labels=[],
+                    negative_tier="negative",
+                    evidence_spans={"negative": ["ai spot check"]},
+                    review_status="pending",
+                )
+            ],
+            repository.annotations_ai_path,
+        )
+
+        app = AnnotationApplication(repository)
+        body = (
+            "primary_research_object=AI+%E7%B3%BB%E7%BB%9F+%2F+%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD&"
+            "preference_labels=%E6%A8%A1%E5%9E%8B%E5%8E%8B%E7%BC%A9&"
+            "negative_tier=positive&"
+            "evidence_1=human+fixed&"
+            "notes=spot+check+updated"
+        ).encode("utf-8")
+
+        app(
+            {
+                "REQUEST_METHOD": "POST",
+                "PATH_INFO": "/papers/paper-negative-review",
+                "wsgi.input": BytesIO(body),
+                "CONTENT_LENGTH": str(len(body)),
+            },
+            lambda status, response_headers: None,
+        )
+
+        self.assertEqual([], repository.load_conflicts(repository.conflicts_path))
+        merged = repository.load_annotations(repository.merged_path)
+        self.assertEqual(1, len(merged))
+        self.assertEqual("paper-negative-review", merged[0].paper_id)
+        self.assertEqual("positive", merged[0].negative_tier)
+        self.assertEqual(["模型压缩"], merged[0].preference_labels)
 
     def test_detail_route_shows_ai_annotation_summary(self) -> None:
         """验证单论文页会展示默认折叠的 AI 预标摘要。"""
@@ -103,6 +584,7 @@ class AnnotationApplicationTests(unittest.TestCase):
 
         html = b"".join(response).decode("utf-8")
         self.assertIn("AI 预标", html)
+        self.assertIn("Detail Test 中文标题", html)
         self.assertIn("<details class=\"collapsible-panel\">", html)
         self.assertNotIn("<details class=\"collapsible-panel\" open>", html)
         self.assertIn("默认折叠，点击展开", html)
@@ -132,6 +614,7 @@ class AnnotationApplicationTests(unittest.TestCase):
                 CandidatePaper(
                     paper_id="paper-2b",
                     title="Detail Missing Zh",
+                    title_zh="缺少中文摘要的详情页",
                     abstract="Only English abstract.",
                     abstract_zh="",
                     authors=["Alice"],
@@ -218,6 +701,7 @@ class AnnotationApplicationTests(unittest.TestCase):
                 BenchmarkRecord(
                     paper_id="paper-final-seed",
                     title="Final Seed Priority",
+                    title_zh="最终种子优先级",
                     abstract="Final Seed Priority abstract.",
                     abstract_zh="Final Seed Priority 中文摘要。",
                     authors=["Alice"],
@@ -490,6 +974,48 @@ class AnnotationApplicationTests(unittest.TestCase):
         self.assertEqual(1, len(conflicts))
         self.assertTrue(conflicts[0].is_resolved)
         self.assertEqual(["paper-conflict"], [item.paper_id for item in repository.load_annotations(repository.merged_path)])
+
+    def test_conflict_page_defaults_to_human_choice(self) -> None:
+        """验证冲突页默认选中以 Human 为准。"""
+
+        temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-conflict-default-human"
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
+
+        repository = AnnotationRepository(temp_root)
+        repository.write_candidates([_candidate(paper_id="paper-conflict-default", title="Conflict Default")])
+        repository.write_annotations([_ai_annotation(paper_id="paper-conflict-default")], repository.annotations_ai_path)
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-conflict-default",
+                    labeler_id="human_reviewer",
+                    primary_research_object="AI 系统 / 基础设施",
+                    preference_labels=["解码策略优化"],
+                    negative_tier="positive",
+                    evidence_spans={"general": ["human evidence"]},
+                    review_status="pending",
+                )
+            ],
+            repository.annotations_human_path,
+        )
+
+        app = AnnotationApplication(repository)
+        app._refresh_merge_outputs()
+        response = app(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/conflicts",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("200", status),
+        )
+
+        html = b"".join(response).decode("utf-8")
+        self.assertIn('name="winner" value="human" checked', html)
+        self.assertIn("Conflict Default 中文摘要。", html)
+        self.assertIn("Conflict Default 中文标题", html)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,6 @@ import json
 import shutil
 from pathlib import Path
 
-from paper_analysis_dataset.domain.benchmark import PREFERENCE_LABELS
 from paper_analysis_dataset.services.annotation_repository import AnnotationRepository
 from paper_analysis_dataset.services.benchmark_builder import (
     BenchmarkBuilder,
@@ -14,58 +13,11 @@ from paper_analysis_dataset.services.benchmark_builder import (
 )
 from paper_analysis_dataset.services.rebalance_benchmark import refresh_benchmark_stats
 from paper_analysis_dataset.services.doubao_abstract_translator import DoubaoAbstractTranslator
+from paper_analysis_dataset.services.paper_filter_schema import build_schema_payload
 from paper_analysis_dataset.shared.paths import DATASET_ROOT_DIR
 
 
 BENCHMARK_ROOT = DATASET_ROOT_DIR / "data" / "benchmarks" / "paper-filter"
-
-
-def _build_schema_payload() -> dict[str, object]:
-    return {
-        "name": "paper-filter",
-        "version": "2026-03-26",
-        "description": "单版本 paper-filter benchmark 协议。",
-        "files": {
-            "records": "records.jsonl",
-            "annotations_ai": "annotations-ai.jsonl",
-            "annotations_human": "annotations-human.jsonl",
-            "merged": "merged.jsonl",
-            "conflicts": "conflicts.jsonl",
-            "stats": "stats.json",
-        },
-        "record_fields": {
-            "paper_id": "string",
-            "title": "string",
-            "abstract": "string",
-            "abstract_zh": "string",
-            "authors": "string[]",
-            "venue": "string",
-            "year": "integer",
-            "source": "string",
-            "source_path": "string",
-            "primary_research_object": "enum",
-            "candidate_preference_labels": "enum[]",
-            "candidate_negative_tier": "enum",
-            "keywords": "string[]",
-            "notes": "string",
-        },
-        "annotation_fields": {
-            "paper_id": "string",
-            "labeler_id": "string",
-            "primary_research_object": "enum",
-            "preference_labels": "enum[]",
-            "negative_tier": "enum",
-            "evidence_spans": "object",
-            "notes": "string",
-            "review_status": "enum",
-        },
-        "annotation_constraints": {
-            "preference_labels_cardinality": "0..1",
-            "positive_requires_exactly_one_preference_label": True,
-        },
-        "negative_tiers": ["positive", "negative"],
-        "preference_labels": list(PREFERENCE_LABELS),
-    }
 
 
 def rebuild_benchmark(
@@ -96,7 +48,7 @@ def rebuild_benchmark(
     repository.write_annotations([], repository.annotations_human_path)
     repository.write_annotations([], repository.merged_path)
     repository.write_conflicts([], repository.conflicts_path)
-    repository.write_json(_build_schema_payload(), repository.schema_path)
+    repository.write_json(build_schema_payload(), repository.schema_path)
     stats = refresh_benchmark_stats(repository, records=records, annotations_ai=[], annotations_human=[], merged_annotations=[])
 
     return {

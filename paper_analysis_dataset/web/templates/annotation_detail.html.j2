@@ -5,7 +5,10 @@
     <section class="panel compact-panel paper-panel" data-paper-panel>
       <div class="paper-meta">
         <div>
-          <h2>{{ candidate.title }}</h2>
+          <h2>{{ candidate.title_zh or candidate.title }}</h2>
+          {% if candidate.title_zh %}
+          <p class="muted">{{ candidate.title }}</p>
+          {% endif %}
           <p class="muted">{{ candidate.venue }}</p>
         </div>
         <div class="paper-meta-badges">

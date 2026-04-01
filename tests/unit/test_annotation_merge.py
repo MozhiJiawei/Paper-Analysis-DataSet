@@ -71,6 +71,42 @@ class AnnotationMergeTests(unittest.TestCase):
         self.assertIn("preference_labels", result.conflicts[0].conflicting_fields)
         self.assertEqual("conflict", result.records[0].resolved_review_status)
 
+    def test_negative_samples_skip_conflict_review_and_merge_human_result(self) -> None:
+        """验证负样本抽检修改后直接进入 merged，不进入冲突。"""
+
+        negative_record = BenchmarkRecord(
+            paper_id="paper-1",
+            title="Test Paper",
+            abstract="Test abstract.",
+            authors=["Alice"],
+            venue="ICLR 2025",
+            year=2025,
+            source="conference",
+            source_path="tests/fixtures/paperlists_repo/iclr/iclr2025.json",
+            primary_research_object="LLM",
+            candidate_preference_labels=[],
+            candidate_negative_tier="negative",
+        )
+
+        result = merge_annotations(
+            [negative_record],
+            [_annotation(labeler_id="codex_cli", negative_tier="negative", preference_labels=[])],
+            [
+                _annotation(
+                    labeler_id="human_reviewer",
+                    primary_research_object="AI 系统 / 基础设施",
+                    negative_tier="positive",
+                    preference_labels=["模型压缩"],
+                )
+            ],
+        )
+
+        self.assertEqual([], result.conflicts)
+        self.assertEqual(1, len(result.merged_annotations))
+        self.assertEqual("final", result.records[0].resolved_review_status)
+        self.assertEqual("positive", result.records[0].resolved_negative_tier)
+        self.assertEqual(["模型压缩"], result.merged_annotations[0].preference_labels)
+
 
 if __name__ == "__main__":
     unittest.main()

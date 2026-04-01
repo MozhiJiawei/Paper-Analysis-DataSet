@@ -41,7 +41,7 @@ class AnnotationApplication:
             if path == "/papers" and method == "GET":
                 query = parse_qs(str(environ.get("QUERY_STRING", "")))
                 status_filter = query.get("status", ["all"])[0]
-                if status_filter not in {"all", "pending", "completed", "conflict"}:
+                if status_filter not in {"all", "negative", "pending", "completed", "conflict"}:
                     status_filter = "all"
                 return self._html_response(
                     start_response,
@@ -50,9 +50,14 @@ class AnnotationApplication:
                         "title": "候选池列表",
                         "rows": self.state.list_papers(status_filter=status_filter),
                         "status_filter": status_filter,
-                        "counts": self.state.list_paper_counts(),
+                        "status_counts": self.state.list_status_counts(),
+                        "counts": self.state.list_status_counts(),
                     },
                 )
+            if path == "/papers/complete-negative" and method == "POST":
+                completed_count = self._complete_negative_from_ai()
+                self._refresh_merge_outputs()
+                return self._redirect(start_response, f"/papers?status=negative&completed={completed_count}")
             if path.startswith("/papers/") and method == "GET":
                 paper_id = path.split("/", 2)[2]
                 return self._html_response(
@@ -117,6 +122,37 @@ class AnnotationApplication:
         if not any(item.paper_id == paper_id for item in self.repository.load_annotations(self.repository.annotations_ai_path)):
             raise ValueError(f"未找到 AI 预标，禁止直接人工补标：{paper_id}")
         self.repository.upsert_annotation(annotation, self.repository.annotations_human_path)
+
+    def _complete_negative_from_ai(self) -> int:
+        negative_ids = {
+            str(row["paper_id"])
+            for row in self.state.list_papers(status_filter="negative")
+        }
+        ai_annotations = {
+            item.paper_id: item
+            for item in self.repository.load_annotations(self.repository.annotations_ai_path)
+        }
+        if not negative_ids:
+            return 0
+        next_annotations: list[AnnotationRecord] = []
+        for paper_id in sorted(negative_ids):
+            source = ai_annotations.get(paper_id)
+            if source is None:
+                raise ValueError(f"未找到 AI 预标，无法批量完成：{paper_id}")
+            next_annotations.append(
+                AnnotationRecord(
+                    paper_id=source.paper_id,
+                    labeler_id="human_reviewer",
+                    primary_research_object=source.primary_research_object,
+                    preference_labels=source.preference_labels,
+                    negative_tier=source.negative_tier,
+                    evidence_spans=source.evidence_spans,
+                    notes="批量一键完成：采纳 AI 预标。",
+                    review_status="pending",
+                )
+            )
+        self.repository.upsert_annotations(next_annotations, self.repository.annotations_human_path)
+        return len(next_annotations)
 
     def _refresh_merge_outputs(self) -> None:
         records = self.repository.load_records()

@@ -38,6 +38,27 @@ def merge_annotations(
         if codex is None or human is None:
             raise ValueError(f"缺少成对标注：{paper_id}")
 
+        if _should_direct_merge_negative_sample(record, codex):
+            final_record = record.with_final_annotation(
+                human,
+                labeler_ids=[codex.labeler_id, human.labeler_id],
+                review_status="final",
+            )
+            merged_records.append(final_record)
+            merged_annotations.append(
+                AnnotationRecord(
+                    paper_id=human.paper_id,
+                    labeler_id="merged",
+                    primary_research_object=human.primary_research_object,
+                    preference_labels=human.preference_labels,
+                    negative_tier=human.negative_tier,
+                    evidence_spans=human.evidence_spans,
+                    notes=human.notes,
+                    review_status="final",
+                )
+            )
+            continue
+
         conflicting_fields = _detect_conflicting_fields(codex, human)
         if conflicting_fields:
             resolved = arbitration_by_id.get(paper_id)
@@ -104,3 +125,13 @@ def _detect_conflicting_fields(codex: AnnotationRecord, human: AnnotationRecord)
     if codex.negative_tier != human.negative_tier:
         conflicts.append("negative_tier")
     return conflicts
+
+
+def _should_direct_merge_negative_sample(
+    record: BenchmarkRecord,
+    codex: AnnotationRecord,
+) -> bool:
+    return (
+        record.candidate_negative_tier == "negative"
+        or codex.negative_tier == "negative"
+    )

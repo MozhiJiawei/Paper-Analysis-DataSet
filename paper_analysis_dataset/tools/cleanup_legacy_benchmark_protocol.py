@@ -9,8 +9,8 @@ from typing import Any
 from paper_analysis_dataset.domain.benchmark import AnnotationRecord, BenchmarkRecord, ConflictRecord
 from paper_analysis_dataset.services.annotation_merge import merge_annotations
 from paper_analysis_dataset.services.annotation_repository import AnnotationRepository
+from paper_analysis_dataset.services.paper_filter_schema import build_schema_payload
 from paper_analysis_dataset.services.rebalance_benchmark import refresh_benchmark_stats
-from paper_analysis_dataset.tools.rebuild_paper_filter_benchmark import _build_schema_payload
 
 
 LEGACY_NEGATIVE_TIER_MAP = {
@@ -57,7 +57,7 @@ def cleanup_legacy_benchmark_protocol(benchmark_root: Path | None = None) -> dic
 
     merged_by_id = {item.paper_id: item for item in result.records}
     next_records = [merged_by_id.get(item.paper_id, item) for item in records]
-    schema = _build_schema_payload()
+    schema = build_schema_payload()
 
     repository.write_records(next_records)
     repository.write_annotations(ai_annotations, repository.annotations_ai_path)
@@ -91,12 +91,18 @@ def _ensure_required_files(root_dir: Path) -> None:
 
 
 def _backup_benchmark_root(root_dir: Path) -> Path:
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     backup_parent = root_dir.parent / "paper-filter-backups"
-    backup_path = backup_parent / f"{root_dir.name}-{timestamp}"
     backup_parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(root_dir, backup_path)
-    return backup_path
+    for attempt in range(10):
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+        backup_path = backup_parent / f"{root_dir.name}-{timestamp}"
+        try:
+            shutil.copytree(root_dir, backup_path)
+            return backup_path
+        except FileExistsError:
+            if attempt == 9:
+                raise
+    raise RuntimeError("未能创建 benchmark 备份目录")
 
 
 def _read_jsonl_dicts(path: Path) -> list[dict[str, Any]]:

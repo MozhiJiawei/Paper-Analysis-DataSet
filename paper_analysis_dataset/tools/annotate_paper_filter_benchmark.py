@@ -20,6 +20,7 @@ def annotate_benchmark(*, concurrency: int = DEFAULT_CONCURRENCY) -> dict[str, o
     backend = resolve_annotation_backend()
     annotator = build_annotator(backend, concurrency=concurrency)
     candidates = repository.load_candidates()
+    print(f"[annotate] start total={len(candidates)} backend={backend} concurrency={concurrency}")
 
     repository.write_annotations([], repository.annotations_ai_path)
     annotate_summary = annotate_missing_candidates(
@@ -35,13 +36,20 @@ def annotate_benchmark(*, concurrency: int = DEFAULT_CONCURRENCY) -> dict[str, o
         for attribute in ("load_records", "annotations_human_path", "merged_path", "stats_path", "write_json")
     ):
         refresh_benchmark_stats(repository)
-    return {
+    summary = {
         "benchmark_root": str(BENCHMARK_ROOT),
         "total_records": len(candidates),
         "annotations_ai": int(annotate_summary["created"]),
         "backend": backend,
         "concurrency": concurrency,
     }
+    print(
+        "[annotate] done "
+        f"submitted={annotate_summary['submitted']} "
+        f"created={annotate_summary['created']} "
+        f"skipped_existing={annotate_summary['skipped_existing']}"
+    )
+    return summary
 
 
 def main() -> None:
