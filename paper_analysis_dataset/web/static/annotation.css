@@ -214,6 +214,13 @@ body {
   gap: 16px;
 }
 
+.bulk-action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
 .filter-links {
   display: flex;
   flex-wrap: wrap;
@@ -287,6 +294,23 @@ button {
   color: #ffffff;
   border: 0;
   cursor: pointer;
+}
+
+.inline-form {
+  margin: 0;
+}
+
+.inline-button {
+  width: auto;
+  margin-top: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+}
+
+.inline-link {
+  color: #92400e;
+  text-decoration: none;
+  font-weight: 600;
 }
 
 .annotation-form-panel {

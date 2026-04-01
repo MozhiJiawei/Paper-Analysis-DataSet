@@ -94,6 +94,7 @@ class CandidatePaper:
     source: str
     source_path: str
     primary_research_object: str
+    title_zh: str = ""
     abstract_zh: str = ""
     candidate_preference_labels: list[str] = field(default_factory=list)
     candidate_negative_tier: str = "negative"
@@ -103,6 +104,7 @@ class CandidatePaper:
     def __post_init__(self) -> None:
         self.paper_id = _validate_required_text("paper_id", self.paper_id)
         self.title = _validate_required_text("title", self.title)
+        self.title_zh = self.title_zh.strip()
         self.abstract = self.abstract.strip()
         self.abstract_zh = self.abstract_zh.strip()
         self.authors = _normalize_unique(self.authors)
@@ -129,6 +131,7 @@ class CandidatePaper:
         return {
             "paper_id": self.paper_id,
             "title": self.title,
+            "title_zh": self.title_zh,
             "abstract": self.abstract,
             "abstract_zh": self.abstract_zh,
             "authors": self.authors,
@@ -148,6 +151,7 @@ class CandidatePaper:
         return cls(
             paper_id=str(payload.get("paper_id", "")),
             title=str(payload.get("title", "")),
+            title_zh=str(payload.get("title_zh", "")),
             abstract=str(payload.get("abstract", "")),
             abstract_zh=str(payload.get("abstract_zh", "")),
             authors=[str(item) for item in payload.get("authors", []) if str(item).strip()],
@@ -236,6 +240,7 @@ class BenchmarkRecord:
     source: str
     source_path: str
     primary_research_object: str
+    title_zh: str = ""
     abstract_zh: str = ""
     candidate_preference_labels: list[str] = field(default_factory=list)
     candidate_negative_tier: str = "negative"
@@ -251,6 +256,7 @@ class BenchmarkRecord:
     def __post_init__(self) -> None:
         self.paper_id = _validate_required_text("paper_id", self.paper_id)
         self.title = _validate_required_text("title", self.title)
+        self.title_zh = self.title_zh.strip()
         self.abstract = self.abstract.strip()
         self.abstract_zh = self.abstract_zh.strip()
         self.authors = _normalize_unique(self.authors)
@@ -320,6 +326,7 @@ class BenchmarkRecord:
         return CandidatePaper(
             paper_id=self.paper_id,
             title=self.title,
+            title_zh=self.title_zh,
             abstract=self.abstract,
             abstract_zh=self.abstract_zh,
             authors=self.authors,
@@ -344,6 +351,7 @@ class BenchmarkRecord:
         return BenchmarkRecord(
             paper_id=self.paper_id,
             title=self.title,
+            title_zh=self.title_zh,
             abstract=self.abstract,
             abstract_zh=self.abstract_zh,
             authors=self.authors,
@@ -368,6 +376,7 @@ class BenchmarkRecord:
         payload: dict[str, object] = {
             "paper_id": self.paper_id,
             "title": self.title,
+            "title_zh": self.title_zh,
             "abstract": self.abstract,
             "abstract_zh": self.abstract_zh,
             "authors": self.authors,
@@ -399,6 +408,7 @@ class BenchmarkRecord:
         return cls(
             paper_id=str(payload.get("paper_id", "")),
             title=str(payload.get("title", "")),
+            title_zh=str(payload.get("title_zh", "")),
             abstract=str(payload.get("abstract", "")),
             abstract_zh=str(payload.get("abstract_zh", "")),
             authors=[str(item) for item in payload.get("authors", [])],

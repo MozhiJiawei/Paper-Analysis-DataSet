@@ -7,6 +7,10 @@ import unittest
 from pathlib import Path
 
 from paper_analysis_dataset.services.annotation_repository import AnnotationRepository
+from paper_analysis_dataset.services.benchmark_schema_validator import (
+    DEFAULT_BENCHMARK_ROOT,
+    validate_benchmark_schema,
+)
 from paper_analysis_dataset.tools.rebuild_paper_filter_benchmark import rebuild_benchmark
 
 
@@ -95,9 +99,10 @@ class BenchmarkDatasetContractTests(unittest.TestCase):
         payload = json.loads(repository.schema_path.read_text(encoding="utf-8"))
 
         self.assertEqual("paper-filter", payload["name"])
-        self.assertEqual("2026-03-26", payload["version"])
+        self.assertEqual("2026-03-31", payload["version"])
         self.assertEqual("annotations-ai.jsonl", payload["files"]["annotations_ai"])
         self.assertEqual("merged.jsonl", payload["files"]["merged"])
+        self.assertEqual("string", payload["record_fields"]["title_zh"])
         self.assertEqual("string", payload["record_fields"]["abstract_zh"])
         self.assertNotIn("target_preference_labels", payload["record_fields"])
         self.assertNotIn("target_preference_labels", payload["annotation_fields"])
@@ -127,6 +132,23 @@ class BenchmarkDatasetContractTests(unittest.TestCase):
                 benchmark_root=self.temp_root / "missing",
                 abstract_translator=_FakeTranslator(),
             )
+
+    def test_repository_records_jsonl_passes_full_schema_scan(self) -> None:
+        """验证仓内 records.jsonl 会被测试全量扫描，且字段契约全部通过。"""
+
+        summary = validate_benchmark_schema(DEFAULT_BENCHMARK_ROOT)
+        records_path = str(DEFAULT_BENCHMARK_ROOT / "records.jsonl")
+        record_issues = [
+            issue for issue in summary["issues"] if str(issue["path"]).startswith(records_path)
+        ]
+        repository = AnnotationRepository(DEFAULT_BENCHMARK_ROOT)
+
+        self.assertEqual(
+            len(repository.load_records()),
+            summary["file_counts"]["records"],
+        )
+        self.assertGreater(summary["file_counts"]["records"], 0)
+        self.assertEqual([], record_issues)
 
 
 if __name__ == "__main__":

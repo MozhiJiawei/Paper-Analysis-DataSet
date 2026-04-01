@@ -100,6 +100,9 @@ def rebalance_benchmark(
         blocked_paper_ids=blocked_paper_ids,
         blocked_fingerprints=blocked_fingerprints,
     )
+    print(
+        f"[rebalance] start ratio={current_ratio:.2f} candidate_pool={len(candidate_pool.candidates)}"
+    )
 
     rng = random.Random(seed)
     shuffled_candidates = list(candidate_pool.candidates)
@@ -131,6 +134,8 @@ def rebalance_benchmark(
             exhaustion_reason = "candidate_pool_exhausted_after_dedupe"
             break
 
+        print(f"[rebalance] batch={batches_completed + 1} start size={len(batch_candidates)}")
+
         next_records = [*existing_records, *[candidate_to_record(item) for item in batch_candidates]]
         duplicate_ids = _find_duplicate_paper_ids(record.paper_id for record in next_records)
         if duplicate_ids:
@@ -157,6 +162,7 @@ def rebalance_benchmark(
         )
         current_ratio = _read_ai_positive_ratio(stats)
         batches_completed += 1
+        print(f"[rebalance] batch={batches_completed} added={added_records} ratio={current_ratio:.2f}")
 
         if max_new_records is not None and added_records >= max_new_records:
             exhaustion_reason = "max_new_records_reached"
@@ -167,7 +173,7 @@ def rebalance_benchmark(
     if not exhaustion_reason and current_ratio <= target_ai_positive_ratio:
         exhaustion_reason = "target_ratio_reached"
 
-    return {
+    summary = {
         "benchmark_root": str(benchmark_root),
         "paperlists_root": str(paperlists_root),
         "venues": [f"{venue}:{year}" for venue, year in venue_targets],
@@ -186,6 +192,10 @@ def rebalance_benchmark(
         },
         "stop_reason": exhaustion_reason or "no_action_needed",
     }
+    print(
+        f"[rebalance] done stop_reason={summary['stop_reason']} added={added_records} ratio={current_ratio:.2f}"
+    )
+    return summary
 
 
 def build_incremental_candidate_pool(
@@ -277,6 +287,7 @@ def annotate_missing_candidates(
     else:
         missing_candidates = list(candidates)
     skipped_existing = len(candidates) - len(missing_candidates)
+    total = len(missing_candidates)
 
     if not missing_candidates:
         return {
@@ -318,6 +329,8 @@ def annotate_missing_candidates(
                 repository.annotations_ai_path,
             )
             created += 1
+            print(f"[annotate] {created}/{total} paper_id={annotation.paper_id}")
+            print(f"[annotate] checkpoint {created}/{total}")
             next_candidate = next(pending_iter, None)
             if next_candidate is not None:
                 pending_futures[runtime_annotator.submit_annotate(next_candidate)] = next_candidate

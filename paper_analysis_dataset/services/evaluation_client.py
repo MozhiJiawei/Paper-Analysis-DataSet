@@ -23,31 +23,21 @@ class EvaluationApiClient:
     def __post_init__(self) -> None:
         self.base_url = self.base_url.rstrip("/")
 
-    def annotate_many(
-        self,
-        items: list[tuple[CandidatePaper, str]],
-    ) -> list[AnnotationRecord]:
-        if not items:
-            raise EvaluationProtocolError("评测请求不能为空")
+    def annotate(self, candidate: CandidatePaper, *, request_id: str) -> AnnotationRecord:
         payload = {
-            "requests": [
-                {
-                    "request_id": request_id,
-                    "paper": {
-                        "paper_id": candidate.paper_id,
-                        "title": candidate.title,
-                        "abstract": candidate.abstract,
-                        "abstract_zh": candidate.abstract_zh,
-                        "authors": candidate.authors,
-                        "venue": candidate.venue,
-                        "year": candidate.year,
-                        "source": candidate.source,
-                        "source_path": candidate.source_path,
-                        "keywords": candidate.keywords,
-                    },
-                }
-                for candidate, request_id in items
-            ]
+            "request_id": request_id,
+            "paper": {
+                "paper_id": candidate.paper_id,
+                "title": candidate.title,
+                "abstract": candidate.abstract,
+                "abstract_zh": candidate.abstract_zh,
+                "authors": candidate.authors,
+                "venue": candidate.venue,
+                "year": candidate.year,
+                "source": candidate.source,
+                "source_path": candidate.source_path,
+                "keywords": candidate.keywords,
+            },
         }
         http_request = request.Request(
             f"{self.base_url}/v1/evaluation/annotate",
@@ -70,22 +60,11 @@ class EvaluationApiClient:
             payload = json.loads(body)
         except json.JSONDecodeError as exc:
             raise EvaluationProtocolError("评测接口响应不是合法 JSON") from exc
-        annotations = self._parse_annotations(payload)
-        if len(annotations) != len(items):
-            raise EvaluationProtocolError("评测接口返回条目数与请求数不一致")
-        return annotations
-
-    def _parse_annotations(self, payload: object) -> list[AnnotationRecord]:
-        if not isinstance(payload, dict):
-            raise EvaluationProtocolError("评测接口响应必须是对象")
-        raw_responses = payload.get("responses")
-        if not isinstance(raw_responses, list) or not raw_responses:
-            raise EvaluationProtocolError("评测接口响应缺少 responses 数组")
-        return [self._parse_annotation(item) for item in raw_responses]
+        return self._parse_annotation(payload)
 
     def _parse_annotation(self, payload: object) -> AnnotationRecord:
         if not isinstance(payload, dict):
-            raise EvaluationProtocolError("评测接口响应条目必须是对象")
+            raise EvaluationProtocolError("评测接口响应必须是对象")
         request_id = str(payload.get("request_id", "")).strip()
         prediction = payload.get("prediction")
         model_info = payload.get("model_info")
@@ -93,7 +72,9 @@ class EvaluationApiClient:
             raise EvaluationProtocolError("评测接口响应缺少 request_id")
         if not isinstance(prediction, dict):
             raise EvaluationProtocolError("评测接口响应缺少 prediction 对象")
-        if not isinstance(model_info, dict) or not str(model_info.get("algorithm_version", "")).strip():
+        if not isinstance(model_info, dict) or not str(
+            model_info.get("algorithm_version", "")
+        ).strip():
             raise EvaluationProtocolError("评测接口响应缺少 model_info.algorithm_version")
 
         disallowed_fields = {

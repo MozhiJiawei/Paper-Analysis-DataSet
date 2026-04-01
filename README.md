@@ -8,6 +8,7 @@
 - annotation 仓储、合并逻辑与网页标注应用
 - Codex / Doubao 预标工具
 - 中文摘要回填工具
+- Codex CLI 并发中文摘要补丁导出
 - 跨仓评测 CLI 与脱敏报告输出
 - 子仓自己的单元测试与质量入口
 
@@ -32,9 +33,11 @@ py -m pip install -e .
 paper-analysis-dataset-rebuild --paperlists-root D:\path\to\paperlists
 paper-analysis-dataset-annotate
 paper-analysis-dataset-backfill --limit 20
+paper-analysis-dataset-translate-abstract-zh-codex --limit 20 --workers 5
 paper-analysis-dataset-annotation-app
 paper-analysis-dataset-evaluate --base-url http://127.0.0.1:8765 --limit 20
 paper-analysis-dataset-local-ci
+paper-analysis-dataset-validate-schema
 ```
 
 也可以直接使用模块入口：
@@ -95,3 +98,17 @@ config/doubao.template.yaml
 ```
 
 Codex 预标依赖本地可用的 `codex` CLI。
+
+如需为缺少 `abstract_zh` 的记录生成中文摘要补丁，同时不直接修改现有数据集，可运行：
+
+```powershell
+paper-analysis-dataset-translate-abstract-zh-codex --workers 5 --checkpoint-every 5
+```
+
+默认输出到：
+
+```text
+artifacts/translations/paper-filter/abstract-zh-codex.jsonl
+```
+
+`paper-analysis-dataset-local-ci` 现在会先做 schema / 字段契约校验，再执行测试。

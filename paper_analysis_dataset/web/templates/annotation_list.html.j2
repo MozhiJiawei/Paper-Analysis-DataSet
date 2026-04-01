@@ -1,14 +1,27 @@
 {% extends "annotation_base.html.j2" %}
 {% block content %}
+{% set resolved_status_counts = status_counts if status_counts is defined else counts %}
 <section class="panel filter-bar">
   <strong>状态筛选</strong>
   <div class="filter-links">
-    <a href="/papers?status=all" class="{% if status_filter == 'all' %}active{% endif %}">全部（{{ counts["all"] }}）</a>
-    <a href="/papers?status=pending" class="{% if status_filter == 'pending' %}active{% endif %}">待复标（{{ counts["pending"] }}）</a>
-    <a href="/papers?status=completed" class="{% if status_filter == 'completed' %}active{% endif %}">已复标（{{ counts["completed"] }}）</a>
-    <a href="/papers?status=conflict" class="{% if status_filter == 'conflict' %}active{% endif %}">有冲突（{{ counts["conflict"] }}）</a>
+    <a href="/papers?status=all" class="{% if status_filter == 'all' %}active{% endif %}">全部（{{ resolved_status_counts["all"] }}）</a>
+    <a href="/papers?status=negative" class="{% if status_filter == 'negative' %}active{% endif %}">待抽检（{{ resolved_status_counts["negative"] }}）</a>
+    <a href="/papers?status=pending" class="{% if status_filter == 'pending' %}active{% endif %}">待复标（{{ resolved_status_counts["pending"] }}）</a>
+    <a href="/papers?status=conflict" class="{% if status_filter == 'conflict' %}active{% endif %}">有冲突（{{ resolved_status_counts["conflict"] }}）</a>
+    <a href="/papers?status=completed" class="{% if status_filter == 'completed' %}active{% endif %}">已完成（{{ resolved_status_counts["completed"] }}）</a>
   </div>
 </section>
+{% if status_filter == "negative" %}
+<section class="panel bulk-action-bar">
+  <div>
+    <strong>批量操作</strong>
+    <div class="muted">一键完成会采纳当前全部待抽检样本的 AI 预标，并写入 merged。</div>
+  </div>
+  <form method="post" action="/papers/complete-negative" class="inline-form">
+    <button type="submit" class="inline-button">一键完成全部待抽检</button>
+  </form>
+</section>
+{% endif %}
 
 <table class="data-table">
   <thead>
@@ -16,15 +29,22 @@
       <th>论文</th>
       <th>会议</th>
       <th>主研究对象</th>
+      <th>负标签</th>
       <th>状态</th>
     </tr>
   </thead>
   <tbody>
     {% for row in rows %}
     <tr>
-      <td><a href="/papers/{{ row.paper_id }}">{{ row.title }}</a></td>
+      <td>
+        <a href="/papers/{{ row.paper_id }}">{{ row.display_title }}</a>
+        {% if row.title_zh %}
+        <div class="muted">{{ row.title }}</div>
+        {% endif %}
+      </td>
       <td>{{ row.venue }}</td>
       <td>{{ row.primary_research_object }}</td>
+      <td>{{ row.negative_tier_label }}</td>
       <td>{{ row.status_label }}</td>
     </tr>
     {% endfor %}

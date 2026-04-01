@@ -7,7 +7,10 @@ from typing import Callable
 
 from paper_analysis_dataset.domain.benchmark import PREFERENCE_LABELS, RESEARCH_OBJECT_LABELS
 from paper_analysis_dataset.domain.benchmark import AnnotationRecord, CandidatePaper
-from paper_analysis_dataset.shared.clients.codex_cli_client import CodexCliClient
+from paper_analysis_dataset.shared.clients.codex_cli_client import (
+    CodexCliClient,
+    DEFAULT_CODEX_CLI_MODEL,
+)
 
 
 Runner = Callable[[str], str]
@@ -24,9 +27,11 @@ class CodexCliAnnotator:
     _labeler_id: str = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        resolved_model = self.model or DEFAULT_CODEX_CLI_MODEL
         self._client = self.client or CodexCliClient(
-            **_build_client_kwargs(self.runner, self.model, self.concurrency)
+            **_build_client_kwargs(self.runner, resolved_model, self.concurrency)
         )
+        self.model = resolved_model
         self._labeler_id = self.labeler_id or _default_codex_labeler_id(self.model)
         self.labeler_id = self._labeler_id
 
