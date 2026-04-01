@@ -1,41 +1,44 @@
 {
   "total_records": 750,
   "by_primary_research_object": {
-    "AI 系统 / 基础设施": 5,
-    "Diffusion / 生成模型": 11,
-    "LLM": 645,
-    "强化学习 / 序列决策": 43,
-    "计算机视觉": 1,
-    "评测 / Benchmark / 数据集": 17,
-    "通用机器学习": 28
+    "AI 系统 / 基础设施": 14,
+    "Diffusion / 生成模型": 73,
+    "LLM": 292,
+    "多模态 / VLM": 60,
+    "强化学习 / 序列决策": 63,
+    "检索 / 推荐 / 搜索": 9,
+    "计算机视觉": 51,
+    "评测 / Benchmark / 数据集": 57,
+    "语音 / 音频": 6,
+    "通用机器学习": 125
   },
   "by_negative_tier": {
-    "negative": 553,
-    "positive": 197
+    "negative": 530,
+    "positive": 220
   },
   "by_preference_label": {
     "解码策略优化": {
-      "positive": 0,
+      "positive": 29,
       "negative": 0
     },
     "上下文与缓存优化": {
-      "positive": 0,
+      "positive": 79,
       "negative": 0
     },
     "系统与调度优化": {
-      "positive": 0,
+      "positive": 19,
       "negative": 0
     },
     "算子与内核优化": {
-      "positive": 0,
+      "positive": 2,
       "negative": 0
     },
     "模型结构侧推理优化": {
-      "positive": 0,
+      "positive": 25,
       "negative": 0
     },
     "模型压缩": {
-      "positive": 0,
+      "positive": 66,
       "negative": 0
     }
   },
@@ -43,148 +46,106 @@
     "records": {
       "total_records": 750,
       "by_negative_tier": {
-        "negative": 553,
-        "positive": 197
+        "negative": 530,
+        "positive": 220
       },
-      "positive_ratio": 0.2627
+      "positive_ratio": 0.2933
     },
     "annotations_ai": {
-      "total_records": 750,
-      "by_negative_tier": {
-        "negative": 529,
-        "positive": 221
-      },
-      "by_primary_research_object": {
-        "AI 系统 / 基础设施": 14,
-        "Diffusion / 生成模型": 81,
-        "LLM": 288,
-        "多模态 / VLM": 58,
-        "强化学习 / 序列决策": 63,
-        "检索 / 推荐 / 搜索": 10,
-        "计算机视觉": 51,
-        "评测 / Benchmark / 数据集": 57,
-        "语音 / 音频": 5,
-        "通用机器学习": 123
-      },
+      "total_records": 0,
+      "by_negative_tier": {},
+      "by_primary_research_object": {},
       "by_preference_label": {
         "解码策略优化": {
-          "positive": 28,
+          "positive": 0,
           "negative": 0
         },
         "上下文与缓存优化": {
-          "positive": 94,
+          "positive": 0,
           "negative": 0
         },
         "系统与调度优化": {
-          "positive": 14,
+          "positive": 0,
           "negative": 0
         },
         "算子与内核优化": {
-          "positive": 3,
+          "positive": 0,
           "negative": 0
         },
         "模型结构侧推理优化": {
-          "positive": 27,
+          "positive": 0,
           "negative": 0
         },
         "模型压缩": {
-          "positive": 55,
+          "positive": 0,
           "negative": 0
         }
       },
-      "positive_ratio": 0.2947
+      "positive_ratio": 0.0
     },
     "annotations_human": {
-      "total_records": 750,
-      "by_negative_tier": {
-        "negative": 528,
-        "positive": 222
-      },
-      "by_primary_research_object": {
-        "AI 系统 / 基础设施": 15,
-        "Diffusion / 生成模型": 72,
-        "LLM": 294,
-        "多模态 / VLM": 59,
-        "强化学习 / 序列决策": 63,
-        "检索 / 推荐 / 搜索": 9,
-        "计算机视觉": 51,
-        "评测 / Benchmark / 数据集": 57,
-        "语音 / 音频": 6,
-        "通用机器学习": 124
-      },
+      "total_records": 0,
+      "by_negative_tier": {},
+      "by_primary_research_object": {},
       "by_preference_label": {
         "解码策略优化": {
-          "positive": 29,
+          "positive": 0,
           "negative": 0
         },
         "上下文与缓存优化": {
-          "positive": 80,
+          "positive": 0,
           "negative": 0
         },
         "系统与调度优化": {
-          "positive": 21,
+          "positive": 0,
           "negative": 0
         },
         "算子与内核优化": {
-          "positive": 2,
+          "positive": 0,
           "negative": 0
         },
         "模型结构侧推理优化": {
-          "positive": 25,
+          "positive": 0,
           "negative": 0
         },
         "模型压缩": {
-          "positive": 65,
+          "positive": 0,
           "negative": 0
         }
       },
-      "positive_ratio": 0.296
+      "positive_ratio": 0.0
     },
     "merged": {
-      "total_records": 750,
-      "by_negative_tier": {
-        "negative": 528,
-        "positive": 222
-      },
-      "by_primary_research_object": {
-        "AI 系统 / 基础设施": 14,
-        "Diffusion / 生成模型": 73,
-        "LLM": 292,
-        "多模态 / VLM": 60,
-        "强化学习 / 序列决策": 63,
-        "检索 / 推荐 / 搜索": 9,
-        "计算机视觉": 51,
-        "评测 / Benchmark / 数据集": 57,
-        "语音 / 音频": 6,
-        "通用机器学习": 125
-      },
+      "total_records": 0,
+      "by_negative_tier": {},
+      "by_primary_research_object": {},
       "by_preference_label": {
         "解码策略优化": {
-          "positive": 29,
+          "positive": 0,
           "negative": 0
         },
         "上下文与缓存优化": {
-          "positive": 80,
+          "positive": 0,
           "negative": 0
         },
         "系统与调度优化": {
-          "positive": 20,
+          "positive": 0,
           "negative": 0
         },
         "算子与内核优化": {
-          "positive": 2,
+          "positive": 0,
           "negative": 0
         },
         "模型结构侧推理优化": {
-          "positive": 25,
+          "positive": 0,
           "negative": 0
         },
         "模型压缩": {
-          "positive": 66,
+          "positive": 0,
           "negative": 0
         }
       },
-      "positive_ratio": 0.296
+      "positive_ratio": 0.0
     }
   }
 }
