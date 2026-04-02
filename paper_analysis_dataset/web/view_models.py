@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from urllib.parse import urlencode
 
 from paper_analysis_dataset.domain.benchmark import AnnotationRecord, BenchmarkRecord
 from paper_analysis_dataset.domain.benchmark import PREFERENCE_LABELS, RESEARCH_OBJECT_LABELS
@@ -12,7 +13,14 @@ from paper_analysis_dataset.services.benchmark_reporter import build_distributio
 class AnnotationAppState:
     repository: AnnotationRepository
 
-    def list_papers(self, status_filter: str = "all") -> list[dict[str, object]]:
+    def list_papers(
+        self,
+        status_filter: str = "all",
+        *,
+        preference_label_filter: str = "all",
+        negative_tier_filter: str = "all",
+        research_object_filter: str = "all",
+    ) -> list[dict[str, object]]:
         records = {
             item.paper_id: item
             for item in self.repository.load_records()
@@ -35,12 +43,29 @@ class AnnotationAppState:
             human_completed = paper_id in human
             seed = human.get(paper_id) or ai.get(paper_id)
             negative_tier = _derive_negative_tier(record=record)
+            primary_research_object = _display_primary_research_object(
+                record=record,
+                seed=seed,
+            )
+            preference_labels = _display_preference_labels(record=record, seed=seed)
             status = _derive_status(
                 has_conflict=has_conflict,
                 human_completed=human_completed,
                 negative_tier=negative_tier,
             )
             if status_filter != "all" and status != status_filter:
+                continue
+            if negative_tier_filter != "all" and negative_tier != negative_tier_filter:
+                continue
+            if (
+                research_object_filter != "all"
+                and primary_research_object != research_object_filter
+            ):
+                continue
+            if (
+                preference_label_filter != "all"
+                and preference_label_filter not in preference_labels
+            ):
                 continue
             rows.append(
                 {
@@ -49,10 +74,8 @@ class AnnotationAppState:
                     "title_zh": record.title_zh,
                     "display_title": _display_title(record),
                     "venue": record.venue,
-                    "primary_research_object": _display_primary_research_object(
-                        record=record,
-                        seed=seed,
-                    ),
+                    "primary_research_object": primary_research_object,
+                    "preference_labels": preference_labels,
                     "negative_tier": negative_tier,
                     "negative_tier_label": _negative_tier_label(negative_tier),
                     "ai_completed": paper_id in ai,
@@ -136,15 +159,72 @@ class AnnotationAppState:
 
     def dashboard(self) -> dict[str, object]:
         records = self.repository.load_records()
-        report = build_distribution_report(records)
+        ai_annotations = self.repository.load_annotations(self.repository.annotations_ai_path)
+        human_annotations = self.repository.load_annotations(self.repository.annotations_human_path)
+        merged_annotations = self.repository.load_annotations(self.repository.merged_path)
+        if self.repository.stats_path.exists():
+            report = self.repository.read_json(self.repository.stats_path)
+        else:
+            report = build_distribution_report(
+                records,
+                annotations_ai=ai_annotations,
+                annotations_human=human_annotations,
+                merged_annotations=merged_annotations,
+            )
         return {
             "summary": report,
             "total_candidates": len(records),
-            "total_ai_annotations": len(self.repository.load_annotations(self.repository.annotations_ai_path)),
-            "total_human_annotations": len(self.repository.load_annotations(self.repository.annotations_human_path)),
-            "total_merged_annotations": len(self.repository.load_annotations(self.repository.merged_path)),
+            "total_ai_annotations": len(ai_annotations),
+            "total_human_annotations": len(human_annotations),
+            "total_merged_annotations": len(merged_annotations),
             "total_conflicts": len(self.repository.load_conflicts(self.repository.conflicts_path)),
         }
+
+    def paper_filter_options(self) -> dict[str, object]:
+        rows = self.list_papers(status_filter="all")
+        preference_labels = sorted(
+            {
+                label
+                for row in rows
+                for label in list(row.get("preference_labels", []))
+            }
+        )
+        research_objects = sorted(
+            {
+                str(row["primary_research_object"])
+                for row in rows
+                if str(row["primary_research_object"]).strip()
+            }
+        )
+        return {
+            "preference_labels": preference_labels,
+            "negative_tiers": [
+                {"value": "positive", "label": "正样本"},
+                {"value": "negative", "label": "负样本"},
+            ],
+            "research_objects": research_objects,
+        }
+
+    def papers_query_string(
+        self,
+        *,
+        status_filter: str,
+        preference_label_filter: str,
+        negative_tier_filter: str,
+        research_object_filter: str,
+    ) -> str:
+        query = {
+            "status": status_filter,
+            "preference_label": preference_label_filter,
+            "negative_tier": negative_tier_filter,
+            "research_object": research_object_filter,
+        }
+        return urlencode(query)
+
+    def papers_reset_url(self, *, status_filter: str) -> str:
+        if status_filter == "all":
+            return "/papers"
+        return "/papers?" + urlencode({"status": status_filter})
 
 
 def _derive_status(*, has_conflict: bool, human_completed: bool, negative_tier: str) -> str:
@@ -215,3 +295,13 @@ def _display_primary_research_object(
 
 def _display_abstract(record: BenchmarkRecord) -> str:
     return record.abstract_zh or record.abstract
+
+
+def _display_preference_labels(
+    *,
+    record: BenchmarkRecord,
+    seed: AnnotationRecord | None,
+) -> list[str]:
+    if seed is not None:
+        return seed.preference_labels
+    return record.candidate_preference_labels

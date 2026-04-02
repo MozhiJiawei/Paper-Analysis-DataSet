@@ -29,6 +29,37 @@ body {
   padding: 16px 20px 24px;
 }
 
+.papers-page-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: calc(100vh - 92px);
+  min-height: 0;
+}
+
+.papers-fixed-top {
+  flex: 0 0 auto;
+}
+
+.papers-fixed-top > .panel:last-child {
+  margin-bottom: 0;
+}
+
+.papers-table-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.papers-table-body-scroll {
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
 .detail-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(360px, 0.95fr);
@@ -207,13 +238,6 @@ body {
   margin-top: 16px;
 }
 
-.filter-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-}
-
 .bulk-action-bar {
   display: flex;
   justify-content: space-between;
@@ -221,25 +245,113 @@ body {
   gap: 16px;
 }
 
+.unified-filter-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 12px 20px;
+}
+
+.filter-rail {
+  display: grid;
+  gap: 8px;
+  min-width: 120px;
+  padding-top: 4px;
+}
+
+.filter-rail-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.filter-rail-meta {
+  display: grid;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #667085;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.compact-filter-shell {
+  width: fit-content;
+  max-width: 100%;
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.filter-section-status {
+  width: 100%;
+}
+
+.filter-section-paper {
+  width: 100%;
+  border-top: 1px solid #e8dece;
+  padding-top: 8px;
+}
+
 .filter-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .filter-links a {
   text-decoration: none;
   color: #92400e;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
+  background: #fff8ef;
+  border: 1px solid #f1c38f;
   border-radius: 999px;
-  padding: 8px 12px;
+  padding: 8px 14px;
+  font-weight: 800;
+  font-size: 0.88rem;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .filter-links a.active {
   color: #ffffff;
-  background: #b45309;
-  border-color: #b45309;
+  background: linear-gradient(135deg, #b94f06 0%, #d97706 100%);
+  border-color: #b94f06;
+}
+
+.paper-filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  justify-content: flex-end;
+  align-items: end;
+}
+
+.filter-field {
+  display: block;
+  margin: 0;
+}
+
+.filter-field select {
+  margin: 0;
+  min-width: 156px;
+  min-height: 30px;
+  border-radius: 9px;
+  border: 1px solid #d7dee8;
+  background: #ffffff;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #111827;
+  box-shadow: none;
+}
+
+.filter-field select:focus {
+  outline: none;
+  border-color: #c2410c;
+  box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.12);
 }
 
 .two-column {
@@ -257,6 +369,12 @@ body {
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
 }
 
+.papers-data-table {
+  border-radius: 0;
+  box-shadow: none;
+  table-layout: fixed;
+}
+
 .data-table th,
 .data-table td {
   border-bottom: 1px solid #e5e7eb;
@@ -267,6 +385,38 @@ body {
 
 .data-table th {
   background: #f8fafc;
+}
+
+.papers-header-table {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.papers-header-table th {
+  border-bottom: 0;
+}
+
+.papers-body-table tr:first-child td {
+  border-top: 0;
+}
+
+.papers-col-title {
+  width: 68%;
+}
+
+.papers-col-venue {
+  width: 8%;
+}
+
+.papers-col-object {
+  width: 14%;
+}
+
+.papers-col-tier {
+  width: 5%;
+}
+
+.papers-col-status {
+  width: 5%;
 }
 
 label,
@@ -432,6 +582,43 @@ button {
 
   .detail-layout {
     height: auto !important;
+  }
+
+  .secondary-filter-bar,
+  .paper-filter-form {
+    grid-template-columns: 1fr;
+  }
+
+  .unified-filter-panel {
+    padding: 16px;
+    justify-content: stretch;
+    flex-direction: column;
+  }
+
+  .papers-page-shell {
+    height: auto;
+  }
+
+  .papers-table-shell {
+    max-height: calc(100vh - 280px);
+  }
+
+  .filter-rail {
+    min-width: 0;
+    padding-top: 0;
+  }
+
+  .compact-filter-shell {
+    width: 100%;
+    justify-items: stretch;
+  }
+
+  .filter-links {
+    justify-content: flex-start;
+  }
+
+  .paper-filter-form {
+    justify-content: flex-start;
   }
 
   .detail-main {

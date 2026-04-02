@@ -43,15 +43,43 @@ class AnnotationApplication:
                 status_filter = query.get("status", ["all"])[0]
                 if status_filter not in {"all", "negative", "pending", "completed", "conflict"}:
                     status_filter = "all"
+                preference_label_filter = query.get("preference_label", ["all"])[0]
+                negative_tier_filter = query.get("negative_tier", ["all"])[0]
+                research_object_filter = query.get("research_object", ["all"])[0]
                 return self._html_response(
                     start_response,
                     "annotation_list.html.j2",
                     {
                         "title": "候选池列表",
-                        "rows": self.state.list_papers(status_filter=status_filter),
+                        "rows": self.state.list_papers(
+                            status_filter=status_filter,
+                            preference_label_filter=preference_label_filter,
+                            negative_tier_filter=negative_tier_filter,
+                            research_object_filter=research_object_filter,
+                        ),
                         "status_filter": status_filter,
+                        "preference_label_filter": preference_label_filter,
+                        "negative_tier_filter": negative_tier_filter,
+                        "research_object_filter": research_object_filter,
                         "status_counts": self.state.list_status_counts(),
                         "counts": self.state.list_status_counts(),
+                        "paper_filters": self.state.paper_filter_options(),
+                        "status_links": {
+                            key: "/papers?" + self.state.papers_query_string(
+                                status_filter=key,
+                                preference_label_filter=preference_label_filter,
+                                negative_tier_filter=negative_tier_filter,
+                                research_object_filter=research_object_filter,
+                            )
+                            for key in ("all", "negative", "pending", "conflict", "completed")
+                        },
+                        "clear_filters_link": "/papers?" + self.state.papers_query_string(
+                            status_filter=status_filter,
+                            preference_label_filter="all",
+                            negative_tier_filter="all",
+                            research_object_filter="all",
+                        ),
+                        "reset_url": self.state.papers_reset_url(status_filter=status_filter),
                     },
                 )
             if path == "/papers/complete-negative" and method == "POST":

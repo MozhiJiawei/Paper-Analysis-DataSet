@@ -79,11 +79,112 @@ class AnnotationApplicationTests(unittest.TestCase):
         self.assertIn("Annotation App Test 中文标题", html)
         self.assertIn("Annotation App Test", html)
         self.assertIn("状态筛选", html)
+        self.assertIn("论文筛选", html)
+        self.assertIn('name="preference_label"', html)
+        self.assertIn('name="negative_tier"', html)
+        self.assertIn('name="research_object"', html)
         self.assertIn("待抽检", html)
         self.assertIn("已完成", html)
         self.assertIn("负标签", html)
         self.assertIn("正样本", html)
         self.assertTrue(any(header[0] == "Content-Type" for header in headers))
+
+    def test_papers_route_supports_dropdown_filters(self) -> None:
+        """验证候选池支持子标签、正负样本和研究对象下拉筛选。"""
+
+        temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-dropdown-filters"
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
+
+        repository = AnnotationRepository(temp_root)
+        repository.write_candidates(
+            [
+                _candidate(paper_id="paper-cache", title="Cache Candidate"),
+                CandidatePaper(
+                    paper_id="paper-vision-negative",
+                    title="Vision Negative Candidate",
+                    title_zh="视觉负样本",
+                    abstract="Vision negative abstract.",
+                    abstract_zh="视觉负样本摘要。",
+                    authors=["Bob"],
+                    venue="ICLR 2025",
+                    year=2025,
+                    source="conference",
+                    source_path="tests.json",
+                    primary_research_object="计算机视觉",
+                    candidate_preference_labels=[],
+                    candidate_negative_tier="negative",
+                ),
+                CandidatePaper(
+                    paper_id="paper-systems",
+                    title="Systems Candidate",
+                    title_zh="系统样本",
+                    abstract="Systems abstract.",
+                    abstract_zh="系统样本摘要。",
+                    authors=["Carol"],
+                    venue="ICLR 2025",
+                    year=2025,
+                    source="conference",
+                    source_path="tests.json",
+                    primary_research_object="AI 系统 / 基础设施",
+                    candidate_preference_labels=["系统与调度优化"],
+                    candidate_negative_tier="positive",
+                ),
+            ]
+        )
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-cache",
+                    labeler_id="codex_cli",
+                    primary_research_object="LLM",
+                    preference_labels=["上下文与缓存优化"],
+                    negative_tier="positive",
+                    evidence_spans={"general": ["cache"]},
+                    review_status="pending",
+                ),
+                AnnotationRecord(
+                    paper_id="paper-vision-negative",
+                    labeler_id="codex_cli",
+                    primary_research_object="计算机视觉",
+                    preference_labels=[],
+                    negative_tier="negative",
+                    evidence_spans={"general": ["vision"]},
+                    review_status="pending",
+                ),
+                AnnotationRecord(
+                    paper_id="paper-systems",
+                    labeler_id="codex_cli",
+                    primary_research_object="AI 系统 / 基础设施",
+                    preference_labels=["系统与调度优化"],
+                    negative_tier="positive",
+                    evidence_spans={"general": ["systems"]},
+                    review_status="pending",
+                ),
+            ],
+            repository.annotations_ai_path,
+        )
+
+        app = AnnotationApplication(repository)
+        response = app(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/papers",
+                "QUERY_STRING": (
+                    "status=all&preference_label=%E4%B8%8A%E4%B8%8B%E6%96%87%E4%B8%8E%E7%BC%93%E5%AD%98%E4%BC%98%E5%8C%96"
+                    "&negative_tier=positive&research_object=LLM"
+                ),
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("200", status),
+        )
+
+        html = b"".join(response).decode("utf-8")
+        self.assertIn("Cache Candidate 中文标题", html)
+        self.assertIn("Cache Candidate", html)
+        self.assertNotIn("Vision Negative Candidate", html)
+        self.assertNotIn("Systems Candidate", html)
 
     def test_papers_route_supports_negative_status_filter(self) -> None:
         """验证候选池一级分类支持负样本待抽检筛选。"""
@@ -859,6 +960,77 @@ class AnnotationApplicationTests(unittest.TestCase):
         self.assertEqual([], repository.load_conflicts(repository.conflicts_path))
         self.assertEqual(["paper-save-now"], [item.paper_id for item in repository.load_annotations(repository.merged_path)])
         self.assertTrue(repository.stats_path.exists())
+
+    def test_stats_route_renders_preference_label_distribution(self) -> None:
+        """验证数据概览页展示子标签统计。"""
+
+        temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-stats-dashboard"
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
+
+        repository = AnnotationRepository(temp_root)
+        repository.write_records(
+            [
+                BenchmarkRecord(
+                    paper_id="paper-stats-1",
+                    title="Stats Candidate One",
+                    title_zh="Stats Candidate One 中文标题",
+                    abstract="Stats Candidate One abstract.",
+                    abstract_zh="Stats Candidate One 中文摘要。",
+                    authors=["Alice"],
+                    venue="ICLR 2025",
+                    year=2025,
+                    source="conference",
+                    source_path="tests.json",
+                    primary_research_object="LLM",
+                    candidate_preference_labels=["解码策略优化"],
+                    candidate_negative_tier="positive",
+                    final_primary_research_object="LLM",
+                    final_preference_labels=["解码策略优化"],
+                    final_negative_tier="positive",
+                    final_labeler_ids=["merged"],
+                    final_review_status="final",
+                ),
+                BenchmarkRecord(
+                    paper_id="paper-stats-2",
+                    title="Stats Candidate Two",
+                    title_zh="Stats Candidate Two 中文标题",
+                    abstract="Stats Candidate Two abstract.",
+                    abstract_zh="Stats Candidate Two 中文摘要。",
+                    authors=["Bob"],
+                    venue="ICLR 2025",
+                    year=2025,
+                    source="conference",
+                    source_path="tests.json",
+                    primary_research_object="LLM",
+                    candidate_preference_labels=["模型压缩"],
+                    candidate_negative_tier="positive",
+                    final_primary_research_object="LLM",
+                    final_preference_labels=["模型压缩"],
+                    final_negative_tier="positive",
+                    final_labeler_ids=["merged"],
+                    final_review_status="final",
+                ),
+            ],
+            include_final_annotations=True,
+        )
+
+        app = AnnotationApplication(repository)
+        response = app(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/stats",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("200", status),
+        )
+
+        html = b"".join(response).decode("utf-8")
+        self.assertIn("数据概览", html)
+        self.assertIn("子标签分布", html)
+        self.assertIn("解码策略优化：1", html)
+        self.assertIn("模型压缩：1", html)
 
     def test_post_negative_annotation_clears_preference_labels(self) -> None:
         """验证 negative 样本保存时会自动清空偏好标签。"""

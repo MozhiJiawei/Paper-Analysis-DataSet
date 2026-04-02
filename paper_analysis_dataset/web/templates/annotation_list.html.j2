@@ -1,53 +1,123 @@
 {% extends "annotation_base.html.j2" %}
 {% block content %}
 {% set resolved_status_counts = status_counts if status_counts is defined else counts %}
-<section class="panel filter-bar">
-  <strong>状态筛选</strong>
-  <div class="filter-links">
-    <a href="/papers?status=all" class="{% if status_filter == 'all' %}active{% endif %}">全部（{{ resolved_status_counts["all"] }}）</a>
-    <a href="/papers?status=negative" class="{% if status_filter == 'negative' %}active{% endif %}">待抽检（{{ resolved_status_counts["negative"] }}）</a>
-    <a href="/papers?status=pending" class="{% if status_filter == 'pending' %}active{% endif %}">待复标（{{ resolved_status_counts["pending"] }}）</a>
-    <a href="/papers?status=conflict" class="{% if status_filter == 'conflict' %}active{% endif %}">有冲突（{{ resolved_status_counts["conflict"] }}）</a>
-    <a href="/papers?status=completed" class="{% if status_filter == 'completed' %}active{% endif %}">已完成（{{ resolved_status_counts["completed"] }}）</a>
+<div class="papers-page-shell">
+  <div class="papers-fixed-top">
+    <section class="panel unified-filter-panel">
+      <div class="filter-rail">
+        <div class="filter-rail-title">筛选</div>
+        <div class="filter-rail-meta">
+          <span>状态筛选</span>
+          <span>论文筛选</span>
+        </div>
+      </div>
+      <div class="compact-filter-shell">
+        <div class="filter-section filter-section-status">
+          <div class="filter-links">
+            <a href="{{ status_links['all'] }}" class="{% if status_filter == 'all' %}active{% endif %}">全部（{{ resolved_status_counts["all"] }}）</a>
+            <a href="{{ status_links['negative'] }}" class="{% if status_filter == 'negative' %}active{% endif %}">待抽检（{{ resolved_status_counts["negative"] }}）</a>
+            <a href="{{ status_links['pending'] }}" class="{% if status_filter == 'pending' %}active{% endif %}">待复标（{{ resolved_status_counts["pending"] }}）</a>
+            <a href="{{ status_links['conflict'] }}" class="{% if status_filter == 'conflict' %}active{% endif %}">有冲突（{{ resolved_status_counts["conflict"] }}）</a>
+            <a href="{{ status_links['completed'] }}" class="{% if status_filter == 'completed' %}active{% endif %}">已完成（{{ resolved_status_counts["completed"] }}）</a>
+          </div>
+        </div>
+        <div class="filter-section filter-section-paper">
+          <form method="get" action="/papers" class="paper-filter-form">
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            <label class="filter-field">
+              <select name="research_object" onchange="this.form.submit()">
+                <option value="all" {% if research_object_filter == 'all' %}selected{% endif %}>全部研究对象</option>
+                {% for item in paper_filters.research_objects %}
+                <option value="{{ item }}" {% if research_object_filter == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="filter-field">
+              <select name="negative_tier" onchange="this.form.submit()">
+                <option value="all" {% if negative_tier_filter == 'all' %}selected{% endif %}>全部样本</option>
+                {% for item in paper_filters.negative_tiers %}
+                <option value="{{ item.value }}" {% if negative_tier_filter == item.value %}selected{% endif %}>{{ item.label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="filter-field">
+              <select name="preference_label" onchange="this.form.submit()">
+                <option value="all" {% if preference_label_filter == 'all' %}selected{% endif %}>全部子标签</option>
+                {% for label in paper_filters.preference_labels %}
+                <option value="{{ label }}" {% if preference_label_filter == label %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </form>
+        </div>
+      </div>
+    </section>
+    {% if status_filter == "negative" %}
+    <section class="panel bulk-action-bar">
+      <div>
+        <strong>批量操作</strong>
+        <div class="muted">一键完成会采纳当前全部待抽检样本的 AI 预标，并写入 merged。</div>
+      </div>
+      <form method="post" action="/papers/complete-negative" class="inline-form">
+        <button type="submit" class="inline-button">一键完成全部待抽检</button>
+      </form>
+    </section>
+    {% endif %}
   </div>
-</section>
-{% if status_filter == "negative" %}
-<section class="panel bulk-action-bar">
-  <div>
-    <strong>批量操作</strong>
-    <div class="muted">一键完成会采纳当前全部待抽检样本的 AI 预标，并写入 merged。</div>
+  <div class="papers-table-shell">
+    <table class="data-table papers-data-table papers-header-table">
+      <thead>
+        <colgroup>
+          <col class="papers-col-title">
+          <col class="papers-col-venue">
+          <col class="papers-col-object">
+          <col class="papers-col-tier">
+          <col class="papers-col-status">
+        </colgroup>
+        <tr>
+          <th>论文</th>
+          <th>会议</th>
+          <th>主研究对象</th>
+          <th>负标签</th>
+          <th>状态</th>
+        </tr>
+      </thead>
+    </table>
+    <div class="papers-table-body-scroll">
+      <table class="data-table papers-data-table papers-body-table">
+        <colgroup>
+          <col class="papers-col-title">
+          <col class="papers-col-venue">
+          <col class="papers-col-object">
+          <col class="papers-col-tier">
+          <col class="papers-col-status">
+        </colgroup>
+        <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>
+            <a href="/papers/{{ row.paper_id }}">{{ row.display_title }}</a>
+            {% if row.title_zh %}
+            <div class="muted">{{ row.title }}</div>
+            {% endif %}
+          </td>
+          <td>{{ row.venue }}</td>
+          <td>{{ row.primary_research_object }}</td>
+          <td>{{ row.negative_tier_label }}</td>
+          <td>{{ row.status_label }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
-  <form method="post" action="/papers/complete-negative" class="inline-form">
-    <button type="submit" class="inline-button">一键完成全部待抽检</button>
-  </form>
-</section>
-{% endif %}
-
-<table class="data-table">
-  <thead>
-    <tr>
-      <th>论文</th>
-      <th>会议</th>
-      <th>主研究对象</th>
-      <th>负标签</th>
-      <th>状态</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for row in rows %}
-    <tr>
-      <td>
-        <a href="/papers/{{ row.paper_id }}">{{ row.display_title }}</a>
-        {% if row.title_zh %}
-        <div class="muted">{{ row.title }}</div>
-        {% endif %}
-      </td>
-      <td>{{ row.venue }}</td>
-      <td>{{ row.primary_research_object }}</td>
-      <td>{{ row.negative_tier_label }}</td>
-      <td>{{ row.status_label }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+</div>
+<script>
+  (function () {
+    var nextUrl = {{ reset_url|tojson }};
+    if (window.location.search && nextUrl) {
+      window.history.replaceState(null, "", nextUrl);
+    }
+  })();
+</script>
 {% endblock %}
