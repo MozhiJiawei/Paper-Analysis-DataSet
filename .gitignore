@@ -1,3 +1,5 @@
 __pycache__/
 *.py[cod]
 artifacts/
+*.egg-info/
+data/benchmarks/paper-filter-rerun-backups/

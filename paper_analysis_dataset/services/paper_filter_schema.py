@@ -6,7 +6,7 @@ from paper_analysis_dataset.domain.benchmark import (
 )
 
 
-SCHEMA_VERSION = "2026-03-31"
+SCHEMA_VERSION = "2026-04-01"
 
 
 def build_schema_payload() -> dict[str, object]:

@@ -1,6 +1,6 @@
 {
   "name": "paper-filter",
-  "version": "2026-03-31",
+  "version": "2026-04-01",
   "description": "单版本 paper-filter benchmark 协议。",
   "files": {
     "records": "records.jsonl",
@@ -50,7 +50,6 @@
     "上下文与缓存优化",
     "系统与调度优化",
     "算子与内核优化",
-    "模型结构侧推理优化",
     "模型压缩"
   ]
 }

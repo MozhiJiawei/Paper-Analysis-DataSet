@@ -77,15 +77,6 @@ PREFERENCE_RULES: dict[str, tuple[str, ...]] = {
         "flash attention",
         "gemm",
     ),
-    "模型结构侧推理优化": (
-        "linear attention",
-        "moe",
-        "state space",
-        "routing",
-        "hybrid",
-        "efficient transformer",
-        "sparse attention",
-    ),
     "模型压缩": (
         "quantization",
         "distillation",
