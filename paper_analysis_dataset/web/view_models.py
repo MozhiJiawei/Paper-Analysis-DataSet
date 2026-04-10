@@ -110,13 +110,15 @@ class AnnotationAppState:
             item.paper_id: item
             for item in self.repository.load_annotations(self.repository.merged_path)
         }.get(paper_id)
+        review_seed = merged or human or ai
+        supplement_seed = merged or human
         return {
             "candidate": record.to_candidate_paper(),
             "ai": ai,
             "human": human,
-            "core_seed": merged or human or ai,
-            "preference_seed": merged or human or ai,
-            "supplement_seed": merged or human,
+            "core_seed": review_seed,
+            "preference_seed": review_seed,
+            "supplement_seed": supplement_seed,
             "preference_labels": PREFERENCE_LABELS,
             "research_object_labels": RESEARCH_OBJECT_LABELS,
         }

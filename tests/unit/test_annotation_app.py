@@ -745,8 +745,8 @@ class AnnotationApplicationTests(unittest.TestCase):
         html = b"".join(response).decode("utf-8")
         self.assertIn("暂无中文摘要", html)
 
-    def test_detail_route_inherits_ai_preannotation_defaults(self) -> None:
-        """验证表单会真实继承 AI 预标的主对象、极性与偏好标签。"""
+    def test_detail_route_uses_blank_supplement_fields_when_only_ai_exists(self) -> None:
+        """验证只有 AI 预标时，补充信息字段保持为空。"""
 
         temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-ai-seed-split"
         if temp_root.exists():
@@ -789,8 +789,81 @@ class AnnotationApplicationTests(unittest.TestCase):
         self.assertIn('<textarea name="evidence_1" rows="3"></textarea>', html)
         self.assertIn('<textarea name="notes" rows="3"></textarea>', html)
 
+    def test_detail_route_uses_human_supplement_fields_when_merged_missing(self) -> None:
+        """验证没有 merged 时，补充信息字段继承人工复标。"""
+
+        temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-human-supplement-priority"
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
+
+        repository = AnnotationRepository(temp_root)
+        repository.write_records(
+            [
+                BenchmarkRecord(
+                    paper_id="paper-human-seed",
+                    title="Human Seed Priority",
+                    title_zh="人工种子优先级",
+                    abstract="Human Seed Priority abstract.",
+                    abstract_zh="Human Seed Priority 中文摘要。",
+                    authors=["Alice"],
+                    venue="ICLR 2025",
+                    year=2025,
+                    source="conference",
+                    source_path="tests.json",
+                    primary_research_object="LLM",
+                    candidate_preference_labels=["解码策略优化"],
+                    candidate_negative_tier="positive",
+                )
+            ]
+        )
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-human-seed",
+                    labeler_id="codex_cli",
+                    primary_research_object="AI 系统 / 基础设施",
+                    preference_labels=["模型压缩"],
+                    negative_tier="positive",
+                    evidence_spans={"general": ["ai evidence"]},
+                    notes="ai notes",
+                    review_status="pending",
+                )
+            ],
+            repository.annotations_ai_path,
+        )
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-human-seed",
+                    labeler_id="human_reviewer",
+                    primary_research_object="多模态 / VLM",
+                    preference_labels=["系统与调度优化"],
+                    negative_tier="negative",
+                    evidence_spans={"general": ["human evidence"]},
+                    notes="human notes",
+                    review_status="pending",
+                )
+            ],
+            repository.annotations_human_path,
+        )
+
+        app = AnnotationApplication(repository)
+        response = app(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/papers/paper-human-seed",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("200", status),
+        )
+
+        html = b"".join(response).decode("utf-8")
+        self.assertIn('<textarea name="evidence_1" rows="3">human evidence</textarea>', html)
+        self.assertIn('<textarea name="notes" rows="3">human notes</textarea>', html)
+
     def test_detail_route_prefers_final_then_human_for_non_core_fields(self) -> None:
-        """验证表单按区块优先使用 final，其次 human。"""
+        """验证补充信息字段优先使用 merged，其次 human。"""
 
         temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-final-priority"
         if temp_root.exists():
