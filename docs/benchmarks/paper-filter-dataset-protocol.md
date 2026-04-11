@@ -28,6 +28,7 @@
 - 候选池内部必须同时做 `paper_id` 去重与规范化 `title + abstract` 指纹去重；若新候选与现有主表论文指纹相同，则优先保留现有主表记录
 - 每次批量写回前都必须再次校验根表 `paper_id` 全局唯一；若发现冲突，整批失败，不允许部分写入
 - `records.jsonl` 仍是唯一元数据主表；新增论文不会自动进入 `annotations-human.jsonl`、`merged.jsonl`
+- 调度类专项增强写入 `records.jsonl` 并完成 AI 预标后，新增记录应保持可追踪，供现有人工复标流程继续处理
 - 增量流程只能对缺失 AI 标注的新增论文执行预标，既有 `annotations-ai.jsonl` 内容不得先清空再重写
 - 本轮分布控制与停止条件以 `stats.json -> by_layer.annotations_ai` 为准
 

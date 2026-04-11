@@ -78,6 +78,19 @@ class BenchmarkBuilderTests(unittest.TestCase):
 
         self.assertEqual(["iclr25-001", "iclr25-002"], [candidate.paper_id for candidate in candidates])
 
+    def test_build_scheduling_positive_candidates_uses_targeted_scoring(self) -> None:
+        """验证调度专项候选会命中系统与调度优化单标签。"""
+
+        builder = BenchmarkBuilder(FIXTURE_PAPERLISTS_ROOT)
+        candidates = builder.build_scheduling_positive_candidates(
+            venue_targets=(("icml", 2025),),
+            minimum_score=1,
+        )
+
+        self.assertEqual(1, len(candidates))
+        self.assertEqual(["系统与调度优化"], candidates[0].candidate.candidate_preference_labels)
+        self.assertGreaterEqual(candidates[0].score, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

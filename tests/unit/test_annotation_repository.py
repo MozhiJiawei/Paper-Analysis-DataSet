@@ -152,6 +152,5 @@ class AnnotationRepositoryTests(unittest.TestCase):
         self.assertIn('"title_zh"', payload)
         self.assertIn('"abstract_zh"', payload)
 
-
 if __name__ == "__main__":
     unittest.main()

@@ -31,6 +31,13 @@ DEFAULT_RELEASE_QUOTA_BY_VENUE = {
     ("nips", 2025): 40,
 }
 
+DEFAULT_SCHEDULING_AUGMENT_VENUES = (
+    ("iclr", 2026),
+    ("nips", 2025),
+    ("icml", 2025),
+    ("aaai", 2025),
+)
+
 PREFERENCE_RULES: dict[str, tuple[str, ...]] = {
     "解码策略优化": (
         "decode",
@@ -160,6 +167,102 @@ INFERENCE_ACCELERATION_EXCLUDE_TERMS: tuple[str, ...] = (
     "speech recognition",
 )
 
+SCHEDULING_STRONG_PHRASES: tuple[str, ...] = (
+    "muxserve",
+    "distserve",
+    "hexgen-2",
+    "adaptive rescheduling in prefill-decode disaggregated llm inference",
+    "efficiently serving large multimodal models using epd disaggregation",
+    "epd-serve",
+    "sem-moe",
+    "capacity-aware inference",
+    "spaceserve",
+)
+
+SCHEDULING_TERM_GROUPS: tuple[tuple[str, tuple[str, ...], int], ...] = (
+    (
+        "llm_serving",
+        (
+            "llm serving",
+            "language model serving",
+            "inference serving",
+            "request scheduling",
+            "continuous batching",
+            "goodput",
+            "tail latency",
+            "admission control",
+            "load balancing",
+        ),
+        4,
+    ),
+    (
+        "multi_tenant",
+        (
+            "multiple llm serving",
+            "multiple model serving",
+            "multi-tenant serving",
+            "multi-tenant lora",
+            "spatial-temporal multiplexing",
+            "gpu multiplexing",
+            "co-location",
+            "shared gpu",
+            "spatial multiplexing",
+        ),
+        4,
+    ),
+    (
+        "pd_disaggregation",
+        (
+            "prefill-decode disaggregation",
+            "prefill decoding disaggregation",
+            "disaggregated llm serving",
+            "disaggregated generative inference",
+            "decode rescheduling",
+            "kv cache transfer",
+            "heterogeneous gpus",
+            "heterogeneous gpu",
+        ),
+        5,
+    ),
+    (
+        "epd_disaggregation",
+        (
+            "encode-prefill-decode",
+            "epd disaggregation",
+            "multimodal serving",
+            "large multimodal models",
+            "stage-level disaggregation",
+        ),
+        5,
+    ),
+    (
+        "moe_scheduling",
+        (
+            "expert parallelism",
+            "expert parallel inference",
+            "moe serving",
+            "all-to-all communication",
+            "straggler effect",
+            "expert routing",
+            "sample placement",
+            "model-data collaborative scheduling",
+            "semantic parallelism",
+        ),
+        5,
+    ),
+)
+
+SCHEDULING_EXCLUDE_TERMS: tuple[str, ...] = (
+    "training",
+    "pretraining",
+    "pre-training",
+    "fine-tuning",
+    "finetuning",
+    "rlhf",
+    "alignment",
+    "reinforcement learning",
+)
+
 RESEARCH_OBJECT_RULES: tuple[tuple[str, str], ...] = (
     ("LLM", "llm large language model language model autoregressive chat model reasoning model"),
     ("多模态 / VLM", "multimodal vlm vision-language text-image"),
@@ -188,6 +291,13 @@ class ScoredCandidatePaper:
     candidate: CandidatePaper
     score: int
     matched_terms: tuple[str, ...]
+
+
+@dataclass(slots=True)
+class SchedulingCandidatePaper:
+    candidate: CandidatePaper
+    score: int
+    matched_groups: tuple[str, ...]
 
 
 class AbstractTranslator(Protocol):
@@ -424,6 +534,39 @@ class BenchmarkBuilder:
         take_from(positives + negatives, quota - len(selected))
         return selected
 
+    def build_scheduling_positive_candidates(
+        self,
+        venue_targets: tuple[tuple[str, int], ...] = DEFAULT_SCHEDULING_AUGMENT_VENUES,
+        *,
+        minimum_score: int = 8,
+    ) -> list[SchedulingCandidatePaper]:
+        selected: list[SchedulingCandidatePaper] = []
+        for venue_key, year in venue_targets:
+            source_path = self.paperlists_root / venue_key / f"{venue_key}{year}.json"
+            papers = normalize_records(
+                filter_accepted_records(load_raw_records(source_path, venue_key.upper(), year))
+            )
+            for paper in papers:
+                score, matched_groups = _score_scheduling_paper(paper)
+                if score < minimum_score:
+                    continue
+                candidate = self._to_candidate(paper)
+                note_prefix = f"调度专项得分={score}"
+                if matched_groups:
+                    note_prefix += f"；命中组={', '.join(matched_groups)}"
+                merged_notes = note_prefix if not candidate.notes else f"{note_prefix}；{candidate.notes}"
+                selected.append(
+                    SchedulingCandidatePaper(
+                        candidate=replace(candidate, notes=merged_notes),
+                        score=score,
+                        matched_groups=matched_groups,
+                    )
+                )
+        return sorted(
+            selected,
+            key=lambda item: (-item.score, item.candidate.paper_id),
+        )
+
 def _infer_research_object(paper: Paper) -> str:
     haystack = " ".join(
         [
@@ -447,20 +590,16 @@ def _infer_research_object(paper: Paper) -> str:
 
 
 def _infer_preference_labels(paper: Paper) -> list[str]:
-    haystack = " ".join(
-        [
-            paper.title.lower(),
-            paper.abstract.lower(),
-            paper.primary_area.lower(),
-            paper.topic.lower(),
-            " ".join(keyword.lower() for keyword in paper.keywords),
-            " ".join(tag.lower() for tag in paper.tags),
-        ]
-    )
-    matched = [
-        label for label, keywords in PREFERENCE_RULES.items() if any(keyword in haystack for keyword in keywords)
-    ]
-    return matched[:1]
+    label_scores = _score_preference_labels(paper)
+    if not label_scores:
+        return []
+    best_score = max(label_scores.values())
+    if best_score <= 0:
+        return []
+    for label in PREFERENCE_LABELS:
+        if label_scores.get(label) == best_score:
+            return [label]
+    return []
 
 
 def _infer_negative_tier(paper: Paper, primary_research_object: str) -> str:
@@ -488,8 +627,8 @@ def _build_evidence(candidate: CandidatePaper) -> dict[str, list[str]]:
     return dict(evidence)
 
 
-def _score_inference_acceleration_paper(paper: Paper) -> tuple[int, tuple[str, ...]]:
-    haystack = " ".join(
+def _paper_haystack(paper: Paper) -> str:
+    return " ".join(
         [
             paper.title.lower(),
             paper.abstract.lower(),
@@ -499,6 +638,20 @@ def _score_inference_acceleration_paper(paper: Paper) -> tuple[int, tuple[str, .
             " ".join(tag.lower() for tag in paper.tags),
         ]
     )
+
+
+def _score_preference_labels(paper: Paper) -> dict[str, int]:
+    haystack = _paper_haystack(paper)
+    scores = {label: 0 for label in PREFERENCE_LABELS}
+    for label, keywords in PREFERENCE_RULES.items():
+        scores[label] += sum(2 for keyword in keywords if keyword in haystack)
+    scheduling_score, _ = _score_scheduling_paper(paper)
+    scores["系统与调度优化"] += scheduling_score
+    return scores
+
+
+def _score_inference_acceleration_paper(paper: Paper) -> tuple[int, tuple[str, ...]]:
+    haystack = _paper_haystack(paper)
     score = 0
     matched_terms: list[str] = []
 
@@ -520,3 +673,66 @@ def _score_inference_acceleration_paper(paper: Paper) -> tuple[int, tuple[str, .
     if any(term in haystack for term in ("inference", "serving", "decoding")):
         score += 2
     return score, tuple(matched_terms)
+
+
+def _score_scheduling_paper(paper: Paper) -> tuple[int, tuple[str, ...]]:
+    haystack = _paper_haystack(paper)
+    score = 0
+    matched_groups: list[str] = []
+
+    for term in SCHEDULING_EXCLUDE_TERMS:
+        if term in haystack:
+            score -= 3
+
+    strong_phrase_hits = [phrase for phrase in SCHEDULING_STRONG_PHRASES if phrase in haystack]
+    if strong_phrase_hits:
+        score += 6 * len(strong_phrase_hits)
+        matched_groups.extend(strong_phrase_hits)
+
+    for group_name, terms, group_score in SCHEDULING_TERM_GROUPS:
+        hits = [term for term in terms if term in haystack]
+        if not hits:
+            continue
+        if group_name == "multi_tenant" and not any(
+            token in haystack for token in ("lora", "llm", "serving", "language model")
+        ):
+            continue
+        if group_name == "pd_disaggregation" and not _contains_all(haystack, ("prefill", "decode")):
+            continue
+        if group_name == "epd_disaggregation" and not any(
+            token in haystack for token in ("multimodal", "encode", "prefill", "decode")
+        ):
+            continue
+        if group_name == "moe_scheduling":
+            cooccurrence_hits = sum(
+                1 for token in ("expert parallel", "all-to-all", "straggler", "routing") if token in haystack
+            )
+            if cooccurrence_hits < 2:
+                continue
+        score += group_score + len(hits)
+        matched_groups.append(group_name)
+
+    if "slo" in haystack and any(token in haystack for token in ("serving", "latency", "throughput", "goodput")):
+        score += 2
+    if "routing" in haystack and any(
+        token in haystack for token in ("expert", "request", "token", "scheduler", "serving")
+    ):
+        score += 2
+    if any(token in haystack for token in ("llm", "language model", "multimodal", "inference")):
+        score += 2
+    return score, tuple(_dedupe_preserve_order(matched_groups))
+
+
+def _contains_all(haystack: str, terms: tuple[str, ...]) -> bool:
+    return all(term in haystack for term in terms)
+
+
+def _dedupe_preserve_order(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        result.append(item)
+    return result

@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from paper_analysis_dataset.domain.benchmark import BenchmarkRecord
 from paper_analysis_dataset.services.annotation_repository import AnnotationRepository
 from paper_analysis_dataset.services.benchmark_schema_validator import validate_benchmark_schema
 from paper_analysis_dataset.services.paper_filter_schema import build_schema_payload
@@ -41,6 +42,7 @@ class BenchmarkSchemaValidatorTests(unittest.TestCase):
             },
             minimum_score=6,
         )
+        _populate_title_zh(self.benchmark_root)
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -97,6 +99,65 @@ class BenchmarkSchemaValidatorTests(unittest.TestCase):
         self.assertFalse(summary["ok"])
         self.assertTrue(any("中文摘要疑似截断或严重过短" in issue["message"] for issue in summary["issues"]))
 
+    def test_validator_rejects_missing_title_zh_when_title_exists(self) -> None:
+        repository = AnnotationRepository(self.benchmark_root)
+        lines = repository.records_path.read_text(encoding="utf-8").splitlines()
+        first = json.loads(lines[0])
+        first["title_zh"] = ""
+        lines[0] = json.dumps(first, ensure_ascii=False)
+        repository.records_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        summary = validate_benchmark_schema(self.benchmark_root)
+
+        self.assertFalse(summary["ok"])
+        self.assertTrue(any("title_zh 不能为空" in issue["message"] for issue in summary["issues"]))
+
+    def test_validator_rejects_missing_abstract_zh_when_abstract_exists(self) -> None:
+        repository = AnnotationRepository(self.benchmark_root)
+        lines = repository.records_path.read_text(encoding="utf-8").splitlines()
+        first = json.loads(lines[0])
+        first["abstract_zh"] = ""
+        lines[0] = json.dumps(first, ensure_ascii=False)
+        repository.records_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        summary = validate_benchmark_schema(self.benchmark_root)
+
+        self.assertFalse(summary["ok"])
+        self.assertTrue(any("abstract_zh 不能为空" in issue["message"] for issue in summary["issues"]))
+
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def _populate_title_zh(benchmark_root: Path) -> None:
+    repository = AnnotationRepository(benchmark_root)
+    records = repository.load_records()
+    repository.write_records(
+        [
+            BenchmarkRecord(
+                paper_id=record.paper_id,
+                title=record.title,
+                title_zh=f"中文标题：{record.title}",
+                abstract=record.abstract,
+                abstract_zh=record.abstract_zh,
+                authors=record.authors,
+                venue=record.venue,
+                year=record.year,
+                source=record.source,
+                source_path=record.source_path,
+                primary_research_object=record.primary_research_object,
+                candidate_preference_labels=record.candidate_preference_labels,
+                candidate_negative_tier=record.candidate_negative_tier,
+                keywords=record.keywords,
+                notes=record.notes,
+                final_primary_research_object=record.final_primary_research_object,
+                final_preference_labels=record.final_preference_labels,
+                final_negative_tier=record.final_negative_tier,
+                final_labeler_ids=record.final_labeler_ids,
+                final_review_status=record.final_review_status,
+                final_evidence_spans=record.final_evidence_spans,
+            )
+            for record in records
+        ]
+    )

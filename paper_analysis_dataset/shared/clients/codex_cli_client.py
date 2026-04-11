@@ -43,6 +43,7 @@ class CodexCliClient:
             result = subprocess.run(
                 self._build_command(prompt),
                 capture_output=True,
+                input=prompt,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
@@ -82,7 +83,9 @@ class CodexCliClient:
             command.append("--json")
         if self.ephemeral:
             command.append("--ephemeral")
-        command.append(prompt)
+        # Read the prompt from stdin to avoid Windows command-line quoting issues
+        # with long abstracts and shell-sensitive characters.
+        command.append("-")
         return command
 
 

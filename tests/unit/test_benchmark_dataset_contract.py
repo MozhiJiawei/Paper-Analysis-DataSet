@@ -6,6 +6,7 @@ import shutil
 import unittest
 from pathlib import Path
 
+from paper_analysis_dataset.domain.benchmark import BenchmarkRecord
 from paper_analysis_dataset.services.annotation_repository import AnnotationRepository
 from paper_analysis_dataset.services.benchmark_schema_validator import (
     DEFAULT_BENCHMARK_ROOT,
@@ -44,6 +45,7 @@ class BenchmarkDatasetContractTests(unittest.TestCase):
             },
             minimum_score=6,
         )
+        _populate_title_zh(cls.temp_root)
 
     def test_single_version_dataset_files_exist(self) -> None:
         """验证单版本目录包含预期核心文件。"""
@@ -64,6 +66,7 @@ class BenchmarkDatasetContractTests(unittest.TestCase):
         repository = AnnotationRepository(self.temp_root)
         records = repository.load_records()
         self.assertEqual(len(records), len({record.paper_id for record in records}))
+        self.assertTrue(all(record.title_zh.startswith("中文标题：") for record in records))
         self.assertTrue(all(record.abstract_zh.startswith("中文摘要：") for record in records))
 
         for path in (
@@ -153,3 +156,36 @@ class BenchmarkDatasetContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def _populate_title_zh(benchmark_root: Path) -> None:
+    repository = AnnotationRepository(benchmark_root)
+    records = repository.load_records()
+    repository.write_records(
+        [
+            BenchmarkRecord(
+                paper_id=record.paper_id,
+                title=record.title,
+                title_zh=f"中文标题：{record.title}",
+                abstract=record.abstract,
+                abstract_zh=record.abstract_zh,
+                authors=record.authors,
+                venue=record.venue,
+                year=record.year,
+                source=record.source,
+                source_path=record.source_path,
+                primary_research_object=record.primary_research_object,
+                candidate_preference_labels=record.candidate_preference_labels,
+                candidate_negative_tier=record.candidate_negative_tier,
+                keywords=record.keywords,
+                notes=record.notes,
+                final_primary_research_object=record.final_primary_research_object,
+                final_preference_labels=record.final_preference_labels,
+                final_negative_tier=record.final_negative_tier,
+                final_labeler_ids=record.final_labeler_ids,
+                final_review_status=record.final_review_status,
+                final_evidence_spans=record.final_evidence_spans,
+            )
+            for record in records
+        ]
+    )

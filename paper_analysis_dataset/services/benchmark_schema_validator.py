@@ -268,8 +268,24 @@ def _validate_record_quality(
     issues: list[ValidationIssue],
     item_path: str,
 ) -> None:
+    title = str(payload.get("title", "")).strip()
+    title_zh = str(payload.get("title_zh", "")).strip()
     abstract = str(payload.get("abstract", "")).strip()
     abstract_zh = str(payload.get("abstract_zh", "")).strip()
+    if title and not title_zh:
+        issues.append(
+            ValidationIssue(
+                path=f"{item_path}.title_zh",
+                message="英文标题非空时，title_zh 不能为空",
+            )
+        )
+    if abstract and not abstract_zh:
+        issues.append(
+            ValidationIssue(
+                path=f"{item_path}.abstract_zh",
+                message="英文摘要非空时，abstract_zh 不能为空",
+            )
+        )
     if not abstract_zh:
         return
     for fragment in FORBIDDEN_TRANSLATION_FRAGMENTS:

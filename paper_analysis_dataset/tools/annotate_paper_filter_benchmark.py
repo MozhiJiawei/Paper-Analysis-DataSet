@@ -3,16 +3,16 @@ from __future__ import annotations
 import json
 
 from paper_analysis_dataset.services.annotation_repository import AnnotationRepository
-from paper_analysis_dataset.services.annotator_selection import build_annotator, resolve_annotation_backend
-from paper_analysis_dataset.services.rebalance_benchmark import (
-    annotate_missing_candidates,
-    refresh_benchmark_stats,
+from paper_analysis_dataset.services.annotation_pipeline import (
+    DEFAULT_CONCURRENCY,
+    rebuild_ai_annotations,
 )
+from paper_analysis_dataset.services.annotator_selection import build_annotator, resolve_annotation_backend
+from paper_analysis_dataset.services.rebalance_benchmark import refresh_benchmark_stats
 from paper_analysis_dataset.shared.paths import DATASET_ROOT_DIR
 
 
 BENCHMARK_ROOT = DATASET_ROOT_DIR / "data" / "benchmarks" / "paper-filter"
-DEFAULT_CONCURRENCY = 5
 
 
 def annotate_benchmark(*, concurrency: int = DEFAULT_CONCURRENCY) -> dict[str, object]:
@@ -20,16 +20,12 @@ def annotate_benchmark(*, concurrency: int = DEFAULT_CONCURRENCY) -> dict[str, o
     backend = resolve_annotation_backend()
     annotator = build_annotator(backend, concurrency=concurrency)
     candidates = repository.load_candidates()
-    print(f"[annotate] start total={len(candidates)} backend={backend} concurrency={concurrency}")
-
-    repository.write_annotations([], repository.annotations_ai_path)
-    annotate_summary = annotate_missing_candidates(
+    annotate_summary = rebuild_ai_annotations(
         repository,
         candidates,
         annotator=annotator,
         backend=backend,
         concurrency=concurrency,
-        skip_existing_annotations=False,
     )
     if all(
         hasattr(repository, attribute)
@@ -43,12 +39,6 @@ def annotate_benchmark(*, concurrency: int = DEFAULT_CONCURRENCY) -> dict[str, o
         "backend": backend,
         "concurrency": concurrency,
     }
-    print(
-        "[annotate] done "
-        f"submitted={annotate_summary['submitted']} "
-        f"created={annotate_summary['created']} "
-        f"skipped_existing={annotate_summary['skipped_existing']}"
-    )
     return summary
 
 
