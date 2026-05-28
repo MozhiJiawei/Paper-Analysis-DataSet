@@ -9,6 +9,7 @@
 - `data/benchmarks/paper-filter/conflicts.jsonl`
 - `data/benchmarks/paper-filter/schema.json`
 - `data/benchmarks/paper-filter/stats.json`
+- `data/benchmarks/paper-filter/split-manifest.json`
 
 ## 核心文件
 
@@ -19,6 +20,7 @@
 - `conflicts.jsonl`：冲突与仲裁状态，只保存 `paper_id` 与冲突标注内容
 - `schema.json`：单版本协议的机器可读说明
 - `stats.json`：当前数据集整体分布摘要
+- `split-manifest.json`：稳定评测集合划分，只保存 `paper_id` 到 `dev`、`dev_validation`、`test` 的归属
 
 ## 增量补录
 
@@ -43,6 +45,14 @@
 - `merged.jsonl` 中同一 `paper_id` 必须全局唯一
 - 未解决冲突的样本不得进入 `merged.jsonl`
 - 本协议不再引入 `calibration`、`v1`、`release`、`split` 等目录或字段
+- 评测集合划分只能写入 `split-manifest.json`，不得写入 `records.jsonl`、`annotations-*.jsonl`、`merged.jsonl` 或 `conflicts.jsonl`
+
+## 评测集合划分
+
+- 集合划分包含 `dev`、`dev_validation`、`test`
+- 新增样本导入时不得手动指定集合；只有进入 `merged.jsonl` 的已完成人类标注样本才允许分配集合
+- 标注网页中的“分配新增已标注样本”按钮只追加尚未分配的 `merged` 样本，已有集合归属不得重算或漂移
+- 分配必须使用稳定的 `paper_id + seed` 规则，避免按人工主观难度临场决定集合
 
 ## 标注字段约束
 

@@ -10,10 +10,14 @@
           <p class="muted">{{ candidate.title }}</p>
           {% endif %}
           <p class="muted">{{ candidate.venue }}</p>
+          {% if candidate.notes %}
+          <p class="muted"><strong>导入背景：</strong>{{ candidate.notes }}</p>
+          {% endif %}
         </div>
         <div class="paper-meta-badges">
           <span class="meta-badge">{{ candidate.primary_research_object }}</span>
           <span class="meta-badge">{{ candidate.source }}</span>
+          <span class="meta-badge">{{ split_label }}</span>
         </div>
       </div>
     </section>

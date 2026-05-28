@@ -7,6 +7,11 @@ from paper_analysis_dataset.domain.benchmark import AnnotationRecord, BenchmarkR
 from paper_analysis_dataset.domain.benchmark import PREFERENCE_LABELS, RESEARCH_OBJECT_LABELS
 from paper_analysis_dataset.services.annotation_repository import AnnotationRepository
 from paper_analysis_dataset.services.benchmark_reporter import build_distribution_report
+from paper_analysis_dataset.services.evaluation_split import (
+    paper_split_map,
+    pending_split_assignment_count,
+    split_counts,
+)
 
 
 @dataclass(slots=True)
@@ -20,6 +25,7 @@ class AnnotationAppState:
         preference_label_filter: str = "all",
         negative_tier_filter: str = "all",
         research_object_filter: str = "all",
+        split_filter: str = "all",
     ) -> list[dict[str, object]]:
         records = {
             item.paper_id: item
@@ -37,6 +43,7 @@ class AnnotationAppState:
             item.paper_id: item
             for item in self.repository.load_conflicts(self.repository.conflicts_path)
         }
+        splits = paper_split_map(self.repository)
         rows: list[dict[str, object]] = []
         for paper_id, record in records.items():
             has_conflict = paper_id in conflicts and not conflicts[paper_id].is_resolved
@@ -67,6 +74,11 @@ class AnnotationAppState:
                 and preference_label_filter not in preference_labels
             ):
                 continue
+            split_name = splits.get(paper_id, "")
+            if split_filter == "unassigned" and split_name:
+                continue
+            if split_filter not in {"all", "unassigned"} and split_name != split_filter:
+                continue
             rows.append(
                 {
                     "paper_id": paper_id,
@@ -83,16 +95,53 @@ class AnnotationAppState:
                     "has_conflict": has_conflict,
                     "status": status,
                     "status_label": _status_label(status),
+                    "split": split_name,
+                    "split_label": _split_label(split_name),
                 }
             )
         return rows
 
-    def list_status_counts(self) -> dict[str, int]:
+    def list_status_counts(
+        self,
+        *,
+        preference_label_filter: str = "all",
+        negative_tier_filter: str = "all",
+        research_object_filter: str = "all",
+        split_filter: str = "all",
+    ) -> dict[str, int]:
         counts = {"all": 0, "negative": 0, "pending": 0, "completed": 0, "conflict": 0}
-        rows = self.list_papers(status_filter="all")
+        rows = self.list_papers(
+            status_filter="all",
+            preference_label_filter=preference_label_filter,
+            negative_tier_filter=negative_tier_filter,
+            research_object_filter=research_object_filter,
+            split_filter=split_filter,
+        )
         counts["all"] = len(rows)
         for row in rows:
             counts[str(row["status"])] += 1
+        return counts
+
+    def filtered_split_counts(
+        self,
+        *,
+        status_filter: str = "all",
+        preference_label_filter: str = "all",
+        negative_tier_filter: str = "all",
+        research_object_filter: str = "all",
+    ) -> dict[str, int]:
+        counts = {"all": 0, "dev": 0, "dev_validation": 0, "test": 0, "unassigned": 0}
+        rows = self.list_papers(
+            status_filter=status_filter,
+            preference_label_filter=preference_label_filter,
+            negative_tier_filter=negative_tier_filter,
+            research_object_filter=research_object_filter,
+            split_filter="all",
+        )
+        counts["all"] = len(rows)
+        for row in rows:
+            split_name = str(row["split"]) or "unassigned"
+            counts[split_name] += 1
         return counts
 
     def paper_detail(self, paper_id: str) -> dict[str, object]:
@@ -110,12 +159,15 @@ class AnnotationAppState:
             item.paper_id: item
             for item in self.repository.load_annotations(self.repository.merged_path)
         }.get(paper_id)
+        split_name = paper_split_map(self.repository).get(paper_id, "")
         review_seed = merged or human or ai
         supplement_seed = merged or human
         return {
             "candidate": record.to_candidate_paper(),
             "ai": ai,
             "human": human,
+            "split": split_name,
+            "split_label": _split_label(split_name),
             "core_seed": review_seed,
             "preference_seed": review_seed,
             "supplement_seed": supplement_seed,
@@ -180,7 +232,15 @@ class AnnotationAppState:
             "total_human_annotations": len(human_annotations),
             "total_merged_annotations": len(merged_annotations),
             "total_conflicts": len(self.repository.load_conflicts(self.repository.conflicts_path)),
+            "split_counts": split_counts(self.repository),
+            "pending_split_assignment_count": pending_split_assignment_count(self.repository),
         }
+
+    def split_counts(self) -> dict[str, int]:
+        return split_counts(self.repository)
+
+    def pending_split_assignment_count(self) -> int:
+        return pending_split_assignment_count(self.repository)
 
     def paper_filter_options(self) -> dict[str, object]:
         rows = self.list_papers(status_filter="all")
@@ -214,12 +274,14 @@ class AnnotationAppState:
         preference_label_filter: str,
         negative_tier_filter: str,
         research_object_filter: str,
+        split_filter: str,
     ) -> str:
         query = {
             "status": status_filter,
             "preference_label": preference_label_filter,
             "negative_tier": negative_tier_filter,
             "research_object": research_object_filter,
+            "split": split_filter,
         }
         return urlencode(query)
 
@@ -247,6 +309,15 @@ def _status_label(status: str) -> str:
         "completed": "已完成",
         "conflict": "有冲突",
     }[status]
+
+
+def _split_label(split_name: str) -> str:
+    return {
+        "dev": "开发集",
+        "dev_validation": "开发验证集",
+        "test": "测试集",
+        "": "未分配",
+    }.get(split_name, split_name)
 
 
 def _derive_negative_tier(*, record: BenchmarkRecord) -> str:

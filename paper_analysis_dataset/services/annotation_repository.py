@@ -50,6 +50,10 @@ class AnnotationRepository:
     def stats_path(self) -> Path:
         return self.root_dir / "stats.json"
 
+    @property
+    def split_manifest_path(self) -> Path:
+        return self.root_dir / "split-manifest.json"
+
     def load_candidates(self) -> list[CandidatePaper]:
         return [record.to_candidate_paper() for record in self.load_records()]
 

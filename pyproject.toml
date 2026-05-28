@@ -26,6 +26,7 @@ paper-analysis-dataset-evaluate = "paper_analysis_dataset.tools.evaluate_paper_f
 paper-analysis-dataset-rebalance = "paper_analysis_dataset.tools.rebalance_paper_filter_benchmark:main"
 paper-analysis-dataset-augment = "paper_analysis_dataset.tools.augment_paper_filter_benchmark:main"
 paper-analysis-dataset-validate-schema = "paper_analysis_dataset.tools.validate_paper_filter_schema:main"
+paper-analysis-dataset-import-samples = "paper_analysis_dataset.tools.import_paper_filter_samples:main"
 
 [tool.setuptools.packages.find]
 include = ["paper_analysis_dataset*"]

@@ -6,9 +6,10 @@
     <section class="panel unified-filter-panel">
       <div class="filter-rail">
         <div class="filter-rail-title">筛选</div>
-        <div class="filter-rail-meta">
+          <div class="filter-rail-meta">
           <span>状态筛选</span>
           <span>论文筛选</span>
+          <span>集合划分</span>
         </div>
       </div>
       <div class="compact-filter-shell">
@@ -50,6 +51,20 @@
             </label>
           </form>
         </div>
+        <div class="split-action-row">
+          <div class="split-counts">
+            <a href="{{ split_links.all }}" class="{% if split_filter == 'all' %}active{% endif %}">全部集合</a>
+            <a href="{{ split_links.dev }}" class="{% if split_filter == 'dev' %}active{% endif %}">开发集 {{ split_counts.dev }}</a>
+            <a href="{{ split_links.dev_validation }}" class="{% if split_filter == 'dev_validation' %}active{% endif %}">开发验证 {{ split_counts.dev_validation }}</a>
+            <a href="{{ split_links.test }}" class="{% if split_filter == 'test' %}active{% endif %}">测试集 {{ split_counts.test }}</a>
+            <a href="{{ split_links.unassigned }}" class="{% if split_filter == 'unassigned' %}active{% endif %}">未分配 {{ pending_split_assignment_count }}</a>
+          </div>
+          <form method="post" action="/splits/assign" class="inline-form">
+            <button type="submit" class="inline-button" {% if pending_split_assignment_count == 0 %}disabled{% endif %}>
+              分配新增已标注样本{% if pending_split_assignment_count > 0 %}（{{ pending_split_assignment_count }}）{% endif %}
+            </button>
+          </form>
+        </div>
       </div>
     </section>
     {% if status_filter == "negative" %}
@@ -73,6 +88,7 @@
           <col class="papers-col-object">
           <col class="papers-col-tier">
           <col class="papers-col-status">
+          <col class="papers-col-split">
         </colgroup>
         <tr>
           <th>论文</th>
@@ -80,6 +96,7 @@
           <th>主研究对象</th>
           <th>负标签</th>
           <th>状态</th>
+          <th>集合</th>
         </tr>
       </thead>
     </table>
@@ -91,6 +108,7 @@
           <col class="papers-col-object">
           <col class="papers-col-tier">
           <col class="papers-col-status">
+          <col class="papers-col-split">
         </colgroup>
         <tbody>
         {% for row in rows %}
@@ -105,6 +123,7 @@
           <td>{{ row.primary_research_object }}</td>
           <td>{{ row.negative_tier_label }}</td>
           <td>{{ row.status_label }}</td>
+          <td>{{ row.split_label }}</td>
         </tr>
         {% endfor %}
         </tbody>

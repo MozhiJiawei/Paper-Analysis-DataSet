@@ -86,8 +86,231 @@ class AnnotationApplicationTests(unittest.TestCase):
         self.assertIn("待抽检", html)
         self.assertIn("已完成", html)
         self.assertIn("负标签", html)
+        self.assertIn("集合", html)
+        self.assertIn("分配新增已标注样本", html)
+        self.assertIn("未分配 0", html)
+        self.assertIn("disabled", html)
+        self.assertIn("未分配", html)
         self.assertIn("正样本", html)
         self.assertTrue(any(header[0] == "Content-Type" for header in headers))
+
+    def test_papers_route_shows_pending_split_assignment_count(self) -> None:
+        """验证列表页显示当前有多少已标注但未分集合的新增样本。"""
+
+        temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-pending-split-count"
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
+
+        repository = AnnotationRepository(temp_root)
+        repository.write_candidates([_candidate(paper_id="paper-ready-split", title="Ready Split")])
+        repository.write_annotations([_ai_annotation(paper_id="paper-ready-split")], repository.annotations_ai_path)
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-ready-split",
+                    labeler_id="merged",
+                    primary_research_object="LLM",
+                    preference_labels=["解码策略优化"],
+                    negative_tier="positive",
+                    evidence_spans={"general": ["final"]},
+                    review_status="final",
+                )
+            ],
+            repository.merged_path,
+        )
+
+        app = AnnotationApplication(repository)
+        response = app(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/papers",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("200", status),
+        )
+
+        html = b"".join(response).decode("utf-8")
+        self.assertIn("未分配 1", html)
+        self.assertIn("分配新增已标注样本（1）", html)
+        self.assertNotIn("disabled", html)
+
+    def test_status_and_split_counts_follow_active_filters(self) -> None:
+        """验证状态分类和集合分类会随当前筛选条件联动重算。"""
+
+        temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-linked-counts"
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
+
+        repository = AnnotationRepository(temp_root)
+        repository.write_candidates(
+            [
+                _candidate(paper_id="paper-dev-done", title="Dev Done"),
+                _candidate(paper_id="paper-test-done", title="Test Done"),
+                _candidate(paper_id="paper-dev-pending", title="Dev Pending"),
+            ]
+        )
+        repository.write_annotations(
+            [
+                _ai_annotation(paper_id="paper-dev-done"),
+                _ai_annotation(paper_id="paper-test-done"),
+                _ai_annotation(paper_id="paper-dev-pending"),
+            ],
+            repository.annotations_ai_path,
+        )
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-dev-done",
+                    labeler_id="human_reviewer",
+                    primary_research_object="LLM",
+                    preference_labels=["解码策略优化"],
+                    negative_tier="positive",
+                    evidence_spans={"general": ["done"]},
+                    review_status="pending",
+                ),
+                AnnotationRecord(
+                    paper_id="paper-test-done",
+                    labeler_id="human_reviewer",
+                    primary_research_object="LLM",
+                    preference_labels=["解码策略优化"],
+                    negative_tier="positive",
+                    evidence_spans={"general": ["done"]},
+                    review_status="pending",
+                ),
+            ],
+            repository.annotations_human_path,
+        )
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-dev-done",
+                    labeler_id="merged",
+                    primary_research_object="LLM",
+                    preference_labels=["解码策略优化"],
+                    negative_tier="positive",
+                    evidence_spans={"general": ["done"]},
+                    review_status="final",
+                ),
+                AnnotationRecord(
+                    paper_id="paper-test-done",
+                    labeler_id="merged",
+                    primary_research_object="LLM",
+                    preference_labels=["解码策略优化"],
+                    negative_tier="positive",
+                    evidence_spans={"general": ["done"]},
+                    review_status="final",
+                ),
+            ],
+            repository.merged_path,
+        )
+        repository.write_json(
+            {
+                "version": 1,
+                "seed": 42,
+                "ratios": {"dev": 0.7, "dev_validation": 0.15, "test": 0.15},
+                "splits": {
+                    "dev": ["paper-dev-done", "paper-dev-pending"],
+                    "dev_validation": [],
+                    "test": ["paper-test-done"],
+                },
+            },
+            repository.split_manifest_path,
+        )
+
+        app = AnnotationApplication(repository)
+        response = app(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/papers",
+                "QUERY_STRING": "status=completed&split=dev",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("200", status),
+        )
+
+        html = b"".join(response).decode("utf-8")
+        self.assertIn("全部（2）", html)
+        self.assertIn("已完成（1）", html)
+        self.assertIn("开发集 1", html)
+        self.assertIn("测试集 1", html)
+        self.assertIn("Dev Done", html)
+        self.assertNotIn("Dev Pending", html)
+        self.assertNotIn("Test Done", html)
+
+    def test_split_assignment_button_assigns_merged_records_and_renders_split(self) -> None:
+        """验证网页按钮只对 merged 中的已标注样本追加稳定集合划分。"""
+
+        temp_root = ROOT_DIR / "artifacts" / "test-output" / "annotation-app-split-assignment"
+        if temp_root.exists():
+            shutil.rmtree(temp_root)
+
+        repository = AnnotationRepository(temp_root)
+        repository.write_candidates(
+            [
+                _candidate(paper_id="paper-split-done", title="Split Done"),
+                _candidate(paper_id="paper-split-pending", title="Split Pending"),
+            ]
+        )
+        repository.write_annotations(
+            [
+                _ai_annotation(paper_id="paper-split-done"),
+                _ai_annotation(paper_id="paper-split-pending"),
+            ],
+            repository.annotations_ai_path,
+        )
+        repository.write_annotations(
+            [
+                AnnotationRecord(
+                    paper_id="paper-split-done",
+                    labeler_id="merged",
+                    primary_research_object="LLM",
+                    preference_labels=["解码策略优化"],
+                    negative_tier="positive",
+                    evidence_spans={"general": ["final"]},
+                    review_status="final",
+                )
+            ],
+            repository.merged_path,
+        )
+
+        app = AnnotationApplication(repository)
+        post_response = app(
+            {
+                "REQUEST_METHOD": "POST",
+                "PATH_INFO": "/splits/assign",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("302", status),
+        )
+        self.assertEqual([b""], post_response)
+
+        list_response = app(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/papers",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("200", status),
+        )
+        list_html = b"".join(list_response).decode("utf-8")
+        self.assertRegex(list_html, "开发集|开发验证集|测试集")
+        self.assertIn("未分配", list_html)
+
+        detail_response = app(
+            {
+                "REQUEST_METHOD": "GET",
+                "PATH_INFO": "/papers/paper-split-done",
+                "wsgi.input": BytesIO(b""),
+                "CONTENT_LENGTH": "0",
+            },
+            lambda status, response_headers: self.assertIn("200", status),
+        )
+        detail_html = b"".join(detail_response).decode("utf-8")
+        self.assertRegex(detail_html, "开发集|开发验证集|测试集")
 
     def test_papers_route_supports_dropdown_filters(self) -> None:
         """验证候选池支持子标签、正负样本和研究对象下拉筛选。"""

@@ -11,6 +11,7 @@ from paper_analysis_dataset.domain.benchmark import AnnotationRecord
 from paper_analysis_dataset.services.annotation_merge import merge_annotations
 from paper_analysis_dataset.services.annotation_repository import AnnotationRepository
 from paper_analysis_dataset.services.benchmark_reporter import build_distribution_report
+from paper_analysis_dataset.services.evaluation_split import assign_new_merged_papers_to_splits
 from paper_analysis_dataset.web.view_models import AnnotationAppState
 
 
@@ -46,6 +47,21 @@ class AnnotationApplication:
                 preference_label_filter = query.get("preference_label", ["all"])[0]
                 negative_tier_filter = query.get("negative_tier", ["all"])[0]
                 research_object_filter = query.get("research_object", ["all"])[0]
+                split_filter = query.get("split", ["all"])[0]
+                if split_filter not in {"all", "dev", "dev_validation", "test", "unassigned"}:
+                    split_filter = "all"
+                status_counts = self.state.list_status_counts(
+                    preference_label_filter=preference_label_filter,
+                    negative_tier_filter=negative_tier_filter,
+                    research_object_filter=research_object_filter,
+                    split_filter=split_filter,
+                )
+                split_counts = self.state.filtered_split_counts(
+                    status_filter=status_filter,
+                    preference_label_filter=preference_label_filter,
+                    negative_tier_filter=negative_tier_filter,
+                    research_object_filter=research_object_filter,
+                )
                 return self._html_response(
                     start_response,
                     "annotation_list.html.j2",
@@ -56,13 +72,17 @@ class AnnotationApplication:
                             preference_label_filter=preference_label_filter,
                             negative_tier_filter=negative_tier_filter,
                             research_object_filter=research_object_filter,
+                            split_filter=split_filter,
                         ),
                         "status_filter": status_filter,
                         "preference_label_filter": preference_label_filter,
                         "negative_tier_filter": negative_tier_filter,
                         "research_object_filter": research_object_filter,
-                        "status_counts": self.state.list_status_counts(),
-                        "counts": self.state.list_status_counts(),
+                        "split_filter": split_filter,
+                        "status_counts": status_counts,
+                        "counts": status_counts,
+                        "split_counts": split_counts,
+                        "pending_split_assignment_count": self.state.pending_split_assignment_count(),
                         "paper_filters": self.state.paper_filter_options(),
                         "status_links": {
                             key: "/papers?" + self.state.papers_query_string(
@@ -70,18 +90,34 @@ class AnnotationApplication:
                                 preference_label_filter=preference_label_filter,
                                 negative_tier_filter=negative_tier_filter,
                                 research_object_filter=research_object_filter,
+                                split_filter=split_filter,
                             )
                             for key in ("all", "negative", "pending", "conflict", "completed")
+                        },
+                        "split_links": {
+                            key: "/papers?" + self.state.papers_query_string(
+                                status_filter=status_filter,
+                                preference_label_filter=preference_label_filter,
+                                negative_tier_filter=negative_tier_filter,
+                                research_object_filter=research_object_filter,
+                                split_filter=key,
+                            )
+                            for key in ("all", "dev", "dev_validation", "test", "unassigned")
                         },
                         "clear_filters_link": "/papers?" + self.state.papers_query_string(
                             status_filter=status_filter,
                             preference_label_filter="all",
                             negative_tier_filter="all",
                             research_object_filter="all",
+                            split_filter="all",
                         ),
                         "reset_url": self.state.papers_reset_url(status_filter=status_filter),
                     },
                 )
+            if path == "/splits/assign" and method == "POST":
+                summary = assign_new_merged_papers_to_splits(self.repository)
+                assigned_count = summary.assigned_count
+                return self._redirect(start_response, f"/papers?split_assigned={assigned_count}")
             if path == "/papers/complete-negative" and method == "POST":
                 completed_count = self._complete_negative_from_ai()
                 self._refresh_merge_outputs()

@@ -329,6 +329,41 @@ body {
   align-items: end;
 }
 
+.split-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border-top: 1px solid #e8dece;
+  padding-top: 8px;
+}
+
+.split-counts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.split-counts a {
+  border: 1px solid #d7dee8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  padding: 5px 9px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.split-counts a.active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
 .filter-field {
   display: block;
   margin: 0;
@@ -400,7 +435,7 @@ body {
 }
 
 .papers-col-title {
-  width: 68%;
+  width: 63%;
 }
 
 .papers-col-venue {
@@ -416,6 +451,10 @@ body {
 }
 
 .papers-col-status {
+  width: 5%;
+}
+
+.papers-col-split {
   width: 5%;
 }
 
@@ -444,6 +483,12 @@ button {
   color: #ffffff;
   border: 0;
   cursor: pointer;
+}
+
+button:disabled {
+  background: #cbd5e1;
+  color: #64748b;
+  cursor: not-allowed;
 }
 
 .inline-form {
