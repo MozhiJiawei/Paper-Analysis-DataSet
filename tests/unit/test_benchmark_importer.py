@@ -111,9 +111,39 @@ class BenchmarkImporterTests(unittest.TestCase):
         self.assertEqual(1, first.records_added)
         self.assertEqual(0, second.records_added)
         self.assertEqual(1, second.records_skipped_existing)
+        self.assertEqual(0, second.records_updated)
         self.assertEqual(1, second.ai_annotations_unchanged)
         self.assertEqual(["paper-4"], [record.paper_id for record in records])
         self.assertEqual(["paper-4"], [annotation.paper_id for annotation in annotations])
+
+    def test_repeated_import_updates_existing_record_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            benchmark_root = Path(temp_dir) / "benchmark"
+            input_json = Path(temp_dir) / "payload.json"
+            _write_payload(
+                input_json,
+                {
+                    "records": [_record("paper-update", notes="old notes")],
+                    "annotations_ai": [_annotation("paper-update", negative_tier="negative")],
+                },
+            )
+            import_benchmark_json(input_json, benchmark_root=benchmark_root)
+            _write_payload(
+                input_json,
+                {
+                    "records": [_record("paper-update", notes="new readable notes")],
+                    "annotations_ai": [_annotation("paper-update", negative_tier="negative")],
+                },
+            )
+
+            summary = import_benchmark_json(input_json, benchmark_root=benchmark_root)
+            repository = AnnotationRepository(benchmark_root)
+            records = repository.load_records()
+
+        self.assertEqual(0, summary.records_added)
+        self.assertEqual(1, summary.records_updated)
+        self.assertEqual(1, summary.records_skipped_existing)
+        self.assertEqual("new readable notes", records[0].notes)
 
     def test_invalid_preference_label_fails_before_writing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

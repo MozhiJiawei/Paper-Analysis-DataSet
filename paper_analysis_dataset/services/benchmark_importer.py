@@ -18,6 +18,7 @@ class BenchmarkImportError(ValueError):
 class BenchmarkImportSummary:
     dry_run: bool
     records_added: int
+    records_updated: int
     records_skipped_existing: int
     ai_annotations_added: int
     ai_annotations_updated: int
@@ -32,6 +33,7 @@ class BenchmarkImportSummary:
             "ok": True,
             "dry_run": self.dry_run,
             "records_added": self.records_added,
+            "records_updated": self.records_updated,
             "records_skipped_existing": self.records_skipped_existing,
             "ai_annotations_added": self.ai_annotations_added,
             "ai_annotations_updated": self.ai_annotations_updated,
@@ -108,10 +110,21 @@ def import_benchmark_payload(
         for annotation in repository.load_annotations(repository.annotations_ai_path)
     }
 
-    new_records = [
-        record for record in payload.records if record.paper_id not in existing_records
-    ]
-    merged_records = list(existing_records.values()) + new_records
+    new_records = []
+    updated_record_ids: set[str] = set()
+    next_records_by_id = dict(existing_records)
+    for record in payload.records:
+        existing_record = existing_records.get(record.paper_id)
+        if existing_record is None:
+            new_records.append(record)
+            next_records_by_id[record.paper_id] = record
+            continue
+        if existing_record.to_dict(include_final_annotations=False) != record.to_dict(
+            include_final_annotations=False
+        ):
+            updated_record_ids.add(record.paper_id)
+            next_records_by_id[record.paper_id] = record
+    merged_records = list(next_records_by_id.values())
 
     ai_added = 0
     ai_updated = 0
@@ -129,6 +142,7 @@ def import_benchmark_payload(
     summary = BenchmarkImportSummary(
         dry_run=dry_run,
         records_added=len(new_records),
+        records_updated=len(updated_record_ids),
         records_skipped_existing=len(payload.records) - len(new_records),
         ai_annotations_added=ai_added,
         ai_annotations_updated=ai_updated,
@@ -145,7 +159,7 @@ def import_benchmark_payload(
     if dry_run:
         return summary
 
-    if new_records:
+    if new_records or updated_record_ids:
         repository.write_records(merged_records)
     if payload.annotations_ai:
         repository.upsert_annotations(payload.annotations_ai, repository.annotations_ai_path)

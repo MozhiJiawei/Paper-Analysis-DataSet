@@ -610,6 +610,25 @@ button:disabled {
   color: #6b7280;
 }
 
+.review-note-block {
+  margin-top: 10px;
+}
+
+.review-note-block strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #1f2937;
+}
+
+.review-note-block pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.55;
+  color: #334155;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

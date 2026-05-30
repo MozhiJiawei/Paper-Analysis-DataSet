@@ -11,7 +11,10 @@
           {% endif %}
           <p class="muted">{{ candidate.venue }}</p>
           {% if candidate.notes %}
-          <p class="muted"><strong>导入背景：</strong>{{ candidate.notes }}</p>
+          <div class="review-note-block muted">
+            <strong>导入背景</strong>
+            <pre>{{ candidate.notes }}</pre>
+          </div>
           {% endif %}
         </div>
         <div class="paper-meta-badges">
@@ -56,7 +59,10 @@
           <p><strong>主研究对象：</strong>{{ ai.primary_research_object }}</p>
           <p><strong>偏好标签：</strong>{{ ai.preference_labels|join("、") or "无" }}</p>
           <p><strong>样本极性：</strong>{{ ai.negative_tier }}</p>
-          <p><strong>备注：</strong>{{ ai.notes or "无" }}</p>
+          <div class="review-note-block">
+            <strong>AI 推荐算法与蓝军审阅</strong>
+            <pre>{{ ai.notes or "无" }}</pre>
+          </div>
           {% else %}
           <p class="muted">当前论文尚未生成 AI 预标。</p>
           {% endif %}
