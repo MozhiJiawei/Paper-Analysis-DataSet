@@ -78,6 +78,7 @@ def parse_import_payload(payload: dict[str, Any]) -> BenchmarkImportPayload:
         _build_annotation(item, index) for index, item in enumerate(raw_annotations_ai)
     ]
     _reject_duplicate_paper_ids("records", [record.paper_id for record in records])
+    _reject_duplicate_titles("records", records)
     _reject_duplicate_paper_ids(
         "annotations_ai",
         [annotation.paper_id for annotation in annotations_ai],
@@ -113,6 +114,7 @@ def import_benchmark_payload(
     new_records = []
     updated_record_ids: set[str] = set()
     next_records_by_id = dict(existing_records)
+    _reject_existing_title_collisions(existing_records, payload.records)
     for record in payload.records:
         existing_record = existing_records.get(record.paper_id)
         if existing_record is None:
@@ -206,3 +208,42 @@ def _reject_duplicate_paper_ids(field_name: str, paper_ids: list[str]) -> None:
         raise BenchmarkImportError(
             f"{field_name} 包含重复 paper_id：" + ", ".join(sorted(duplicates))
         )
+
+
+def _reject_duplicate_titles(field_name: str, records: list[BenchmarkRecord]) -> None:
+    seen: dict[str, str] = {}
+    duplicates: list[str] = []
+    for record in records:
+        title_key = _normalize_title(record.title)
+        if not title_key:
+            continue
+        existing_paper_id = seen.get(title_key)
+        if existing_paper_id is not None and existing_paper_id != record.paper_id:
+            duplicates.append(f"{record.title} ({existing_paper_id}, {record.paper_id})")
+            continue
+        seen[title_key] = record.paper_id
+    if duplicates:
+        raise BenchmarkImportError(f"{field_name} 包含重复标题：" + "; ".join(duplicates))
+
+
+def _reject_existing_title_collisions(
+    existing_records: dict[str, BenchmarkRecord],
+    incoming_records: list[BenchmarkRecord],
+) -> None:
+    existing_title_to_id = {
+        _normalize_title(record.title): record.paper_id
+        for record in existing_records.values()
+        if _normalize_title(record.title)
+    }
+    collisions: list[str] = []
+    for record in incoming_records:
+        title_key = _normalize_title(record.title)
+        existing_paper_id = existing_title_to_id.get(title_key)
+        if existing_paper_id is not None and existing_paper_id != record.paper_id:
+            collisions.append(f"{record.title} ({existing_paper_id}, {record.paper_id})")
+    if collisions:
+        raise BenchmarkImportError("导入记录与现有数据集标题重复：" + "; ".join(collisions))
+
+
+def _normalize_title(title: str) -> str:
+    return " ".join(title.casefold().split())

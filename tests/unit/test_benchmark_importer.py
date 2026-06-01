@@ -193,6 +193,31 @@ class BenchmarkImporterTests(unittest.TestCase):
             with self.assertRaises(BenchmarkImportError):
                 import_benchmark_json(input_json, benchmark_root=Path(temp_dir) / "benchmark")
 
+    def test_duplicate_title_in_payload_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_json = Path(temp_dir) / "payload.json"
+            first = _record("paper-title-1")
+            second = _record("paper-title-2")
+            second["title"] = first["title"]
+            _write_payload(input_json, {"records": [first, second]})
+
+            with self.assertRaisesRegex(BenchmarkImportError, "重复标题"):
+                import_benchmark_json(input_json, benchmark_root=Path(temp_dir) / "benchmark")
+
+    def test_existing_title_collision_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            benchmark_root = Path(temp_dir) / "benchmark"
+            input_json = Path(temp_dir) / "payload.json"
+            first = _record("paper-title-existing")
+            _write_payload(input_json, {"records": [first]})
+            import_benchmark_json(input_json, benchmark_root=benchmark_root)
+            second = _record("paper-title-new")
+            second["title"] = first["title"]
+            _write_payload(input_json, {"records": [second]})
+
+            with self.assertRaisesRegex(BenchmarkImportError, "标题重复"):
+                import_benchmark_json(input_json, benchmark_root=benchmark_root)
+
     def test_dry_run_validates_without_writing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             benchmark_root = Path(temp_dir) / "benchmark"
